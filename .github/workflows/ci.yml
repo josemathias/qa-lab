@@ -1,0 +1,41 @@
+name: Run L0 and L1 Tests
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [18.x]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      - name: Run Unit Tests (Jest)
+        working-directory: L0-unit-tests
+        run: |
+          npm init -y
+          npm install --save-dev jest
+          echo '{ "scripts": { "test": "jest" } }' > package.json
+          npm test
+
+      - name: Run Cypress Tests
+        working-directory: L1-integration-tests
+        run: |
+          npm init -y
+          npm install cypress --save-dev
+          echo '{ "scripts": { "test": "cypress run" } }' > package.json
+          npx cypress install
+          npm test
