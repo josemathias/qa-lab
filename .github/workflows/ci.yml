@@ -39,3 +39,4 @@ jobs:
           echo '{ "scripts": { "test": "cypress run" } }' > package.json
           npx cypress install
           npm test
+          npx cypress run --record --key ${{ secrets.CYPRESS_RECORD_KEY }}
