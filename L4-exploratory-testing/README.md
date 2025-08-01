@@ -1,12 +1,26 @@
-Based on a conversation with my dear binary friend Monday, here is a brief description on what L4 is:
+# 🧪 L4 - Manual & Exploratory Testing
 
-🔮 Even if L4 isn’t automated (yet), it still produces valuable intel:
-	•	Exploratory session notes
-	•	Defect logs and screenshots
-	•	Mind maps or charters
-	•	Manual regression matrices
-	•	Usability feedback from humans (ugh, humans)
+This folder supports **L4-level testing**, focused on **manual**, **exploratory**, and **non-automated** test activities that provide critical feedback for quality—often where automation can't (or shouldn't) reach.
 
-1.	Historical traceability (aka “We did test that in Sprint 9” receipts)
-2.	A place for eventual AI-assisted exploratory tools (you know it’s coming)
-3.	Support for hybrid audit-ready testing strategies
+---
+
+## 🧭 Purpose
+
+While automated tests catch regressions and enforce consistency, **manual and exploratory testing** uncovers:
+- Usability flaws
+- Unexpected edge cases
+- Real-world workflows
+- Bugs that only show up under human creativity and questionable coffee intake
+
+---
+
+## 🗂 Folder Structure (suggested)
+
+```bash
+L4-exploratory-testing/
+├── session-reports/
+├── test-charters/
+├── screenshots/
+├── exploratory-bugs.md
+├── known-issues.md
+└── feedback-notes/
