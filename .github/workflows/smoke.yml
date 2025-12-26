@@ -1,0 +1,37 @@
+name: Smoke QA Lab Runner
+
+on:
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: us-east-2
+
+      - run: npm ci
+
+      - name: Run runner with dummy command
+        run: |
+          node runner/index.js \
+            --tenant "ligacoop" \
+            --repo "${{ github.repository }}" \
+            --repoSlug "qa-lab" \
+            --buildId "${{ github.run_id }}" \
+            --workdir "${{ github.workspace }}" \
+            --s3Bucket "qa-lab-results-dev" \
+            --s3Prefix "dev" \
+            --l0 "node -e \"console.log('L0 ok')\""

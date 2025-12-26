@@ -1,0 +1,92 @@
+name: QA Lab (Reusable)
+
+on:
+  workflow_call:
+    inputs:
+      tenant_key:
+        required: true
+        type: string
+      repo_slug:
+        required: true
+        type: string
+      build_id:
+        required: true
+        type: string
+      workdir:
+        required: true
+        type: string
+      l0_command:
+        required: true
+        type: string
+      l1_command:
+        required: false
+        type: string
+      node_version:
+        required: false
+        type: string
+        default: '20'
+      s3_bucket:
+        required: false
+        type: string
+        default: 'qa-lab-results-dev'
+      s3_prefix:
+        required: false
+        type: string
+        default: 'dev'
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout caller repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node_version }}
+
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: us-east-2
+
+      - name: Install runner dependencies (qa-lab runner)
+        run: |
+          # O runner está dentro do repositório qa-lab, mas esse workflow roda no repo consumidor.
+          # Então a gente baixa o qa-lab como "action code" usando checkout adicional.
+          echo "Fetching qa-lab runner..."
+        shell: bash
+
+      - name: Checkout qa-lab runner
+        uses: actions/checkout@v4
+        with:
+          repository: josemathias/qa-lab
+          path: .qa-lab
+          ref: main
+
+      - name: Install qa-lab
+        working-directory: .qa-lab
+        run: npm ci
+
+      - name: Run QA Lab (L0/L1)
+        working-directory: .qa-lab
+        env:
+          AWS_REGION: us-east-2
+        run: |
+          node runner/index.js \
+            --tenant "${{ inputs.tenant_key }}" \
+            --repo "${{ github.repository }}" \
+            --repoSlug "${{ inputs.repo_slug }}" \
+            --buildId "${{ inputs.build_id }}" \
+            --workdir "${{ github.workspace }}/${{ inputs.workdir }}" \
+            --s3Bucket "${{ inputs.s3_bucket }}" \
+            --s3Prefix "${{ inputs.s3_prefix }}" \
+            --l0 "${{ inputs.l0_command }}" \
+            --l1 "${{ inputs.l1_command }}"
