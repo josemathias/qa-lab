@@ -1,11 +1,6 @@
 // runner/s3.js
+import fs from 'node:fs/promises';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
-
-function requireEnv(name) {
-  const v = process.env[name];
-  if (!v) throw new Error(`Missing env ${name}`);
-  return v;
-}
 
 export function getS3Client() {
   const region = process.env.AWS_REGION || process.env.AWS_DEFAULT_REGION || 'us-east-2';
@@ -32,4 +27,20 @@ export function buildS3Key({ prefix, tenantKey, repoSlug, buildId, path }) {
   const p = (prefix || 'dev').replace(/^\/+|\/+$/g, '');
   const clean = (s) => String(s || '').replace(/^\/+|\/+$/g, '');
   return `${clean(p)}/${clean(tenantKey)}/${clean(repoSlug)}/${clean(buildId)}/${clean(path)}`;
+}
+
+export async function publishToS3({ manifest, layer, bucket, prefix, resultPath }) {
+  const payload = JSON.parse(await fs.readFile(resultPath, 'utf8'));
+
+  const key = buildS3Key({
+    prefix,
+    tenantKey: manifest.tenant_key,
+    repoSlug: manifest.repo_slug,
+    buildId: manifest.build_id,
+    path: `results/${layer}.json`,
+  });
+
+  await putJson({ bucket, key, obj: payload });
+
+  return { bucket, key };
 }

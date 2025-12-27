@@ -51,3 +51,36 @@ export async function execCommand(command, opts = {}) {
     });
   });
 }
+
+export async function runLayer({ layer, command, cwd }) {
+  const exec = await execCommand(command, { cwd });
+  const status = exec.exitCode === 0 ? 'passed' : 'failed';
+
+  // Esqueleto de estatísticas padronizadas (a serem preenchidas por parsers específicos no futuro).
+  const totals = {
+    total: null,
+    passed: null,
+    failed: status === 'failed' ? null : null,
+    skipped: null,
+  };
+
+  // Esqueleto de falhas (futuramente alimentado por parsers de JUnit/JSON específicos).
+  const failures = status === 'failed'
+    ? [
+        {
+          test_name: null,
+          file_path: null,
+          message_snippet: exec.stderrTail || exec.stdoutTail || 'Command failed',
+        },
+      ]
+    : [];
+
+  return {
+    layer,
+    command,
+    status,
+    exec,
+    totals,
+    failures,
+  };
+}

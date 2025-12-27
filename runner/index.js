@@ -3,7 +3,7 @@ import { buildManifest } from './manifest.js';
 import { runLayer } from './exec.js';
 import { writeResult } from './result.js';
 import { publishToS3 } from './s3.js';
-import { upsertBuild, closeDb } from './persist.js';
+import { upsertBuild, recordRun, recordFailures, closeDb } from './persist.js';
 
 function deriveStatus(l0, l1) {
   if (l0?.status === 'failed') return 'failed';
@@ -56,13 +56,35 @@ async function main() {
     // 2) Executa L0
     l0Result = await runLayer({ layer: 'L0', command: l0Cmd, cwd: workdir });
     const l0Path = await writeResult({ manifest, layer: 'L0', result: l0Result });
-    await publishToS3({ manifest, layer: 'L0', bucket: s3Bucket, prefix: s3Prefix, resultPath: l0Path });
+    const l0S3 = await publishToS3({ manifest, layer: 'L0', bucket: s3Bucket, prefix: s3Prefix, resultPath: l0Path });
+    await recordRun({
+      buildId: manifest.build_id,
+      layer: 'L0',
+      status: l0Result.status,
+      durationMs: l0Result.exec?.durationMs,
+      totals: l0Result.totals,
+      s3ResultPath: l0S3 ? `s3://${l0S3.bucket}/${l0S3.key}` : null,
+    });
+    if (l0Result.failures?.length) {
+      await recordFailures({ buildId: manifest.build_id, layer: 'L0', failures: l0Result.failures });
+    }
 
     // 3) Executa L1 (opcional)
     if (l1Cmd && String(l1Cmd).trim()) {
       l1Result = await runLayer({ layer: 'L1', command: l1Cmd, cwd: workdir });
       const l1Path = await writeResult({ manifest, layer: 'L1', result: l1Result });
-      await publishToS3({ manifest, layer: 'L1', bucket: s3Bucket, prefix: s3Prefix, resultPath: l1Path });
+      const l1S3 = await publishToS3({ manifest, layer: 'L1', bucket: s3Bucket, prefix: s3Prefix, resultPath: l1Path });
+      await recordRun({
+        buildId: manifest.build_id,
+        layer: 'L1',
+        status: l1Result.status,
+        durationMs: l1Result.exec?.durationMs,
+        totals: l1Result.totals,
+        s3ResultPath: l1S3 ? `s3://${l1S3.bucket}/${l1S3.key}` : null,
+      });
+      if (l1Result.failures?.length) {
+        await recordFailures({ buildId: manifest.build_id, layer: 'L1', failures: l1Result.failures });
+      }
     }
 
     // 4) Final status
@@ -76,6 +98,7 @@ async function main() {
       shas: manifest.commit_shas,
       authors: manifest.authors,
       status: finalStatus,
+      finishedAt: new Date().toISOString(),
     });
 
     if (finalStatus === 'failed') process.exitCode = 1;
@@ -89,6 +112,7 @@ async function main() {
       shas: manifest.commit_shas,
       authors: manifest.authors,
       status: 'failed',
+      finishedAt: new Date().toISOString(),
     });
     process.exitCode = 1;
     throw err;
