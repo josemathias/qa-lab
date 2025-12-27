@@ -2,6 +2,9 @@ name: QA Lab (Reusable)
 
 on:
   workflow_call:
+    secrets:
+      AWS_ROLE_ARN:
+        required: true
     inputs:
       tenant_key:
         required: true
