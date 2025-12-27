@@ -2,10 +2,10 @@ name: QA Lab (Reusable)
 
 on:
   workflow_call:
-    inputs:
+    secrets:
       AWS_ROLE_ARN:
         required: true
-        type: string
+    inputs:
       tenant_key:
         required: true
         type: string
