@@ -1,80 +1,103 @@
 // runner/index.js
-import { execCommand } from './exec.js';
 import { buildManifest } from './manifest.js';
-import { makeResult } from './result.js';
-import { putJson, buildS3Key } from './s3.js';
+import { runLayer } from './exec.js';
+import { writeResult } from './result.js';
+import { publishToS3 } from './s3.js';
+import { upsertBuild, closeDb } from './persist.js';
 
-function arg(name, def = '') {
-  const i = process.argv.indexOf(`--${name}`);
-  if (i === -1) return def;
-  return process.argv[i + 1] ?? def;
+function deriveStatus(l0, l1) {
+  if (l0?.status === 'failed') return 'failed';
+  if (l1 && l1?.status === 'failed') return 'failed';
+  return 'passed';
 }
 
-function required(name) {
-  const v = arg(name);
-  if (!v) throw new Error(`Missing --${name}`);
-  return v;
-}
+async function main() {
+  const args = Object.fromEntries(
+    process.argv.slice(2).reduce((acc, cur, idx, arr) => {
+      if (!cur.startsWith('--')) return acc;
+      const key = cur.replace(/^--/, '');
+      const val = arr[idx + 1] && !arr[idx + 1].startsWith('--') ? arr[idx + 1] : 'true';
+      acc.push([key, val]);
+      return acc;
+    }, [])
+  );
 
-function normalizeRepoSlug(repoSlug, repoFull) {
-  // se vier "owner/repo", usa só "repo" como slug default, mas aceita qualquer coisa
-  if (repoSlug) return repoSlug;
-  const parts = String(repoFull || '').split('/');
-  return parts[1] || parts[0] || 'repo';
-}
+  const tenantKey = args.tenant;
+  const repo = args.repo;
+  const repoSlug = args.repoSlug;
+  const buildId = args.buildId;
+  const workdir = args.workdir;
+  const s3Bucket = args.s3Bucket;
+  const s3Prefix = args.s3Prefix;
+  const l0Cmd = args.l0;
+  const l1Cmd = args.l1;
 
-async function run() {
-  const tenantKey = required('tenant');
-  const repo = required('repo'); // owner/repo
-  const repoSlug = normalizeRepoSlug(arg('repoSlug'), repo);
-  const buildId = required('buildId');
-  const workdir = arg('workdir', process.cwd());
-  const bucket = required('s3Bucket');
-  const prefix = arg('s3Prefix', 'dev');
-
-  const l0 = arg('l0', '');
-  const l1 = arg('l1', '');
+  if (!tenantKey || !repo || !repoSlug || !buildId || !workdir || !s3Bucket || !s3Prefix || !l0Cmd) {
+    throw new Error('missing_required_args');
+  }
 
   const manifest = buildManifest({ tenantKey, repo, repoSlug, buildId, workdir });
 
-  // 1) upload manifest
-  const manifestKey = buildS3Key({ prefix, tenantKey, repoSlug, buildId, path: 'manifest.json' });
-  await putJson({ bucket, key: manifestKey, obj: manifest });
+  // 1) Marca build como running no DB (Neon)
+  await upsertBuild({
+    buildId: manifest.build_id,
+    repo: manifest.repo,
+    branch: manifest.branch,
+    headSha: manifest.sha,
+    shas: manifest.commit_shas,
+    authors: manifest.authors,
+    status: 'running',
+  });
 
-  // 2) L0
-  let l0Result;
-  if (l0) {
-    const exec = await execCommand(l0, { cwd: workdir });
-    const status = exec.exitCode === 0 ? 'passed' : 'failed';
-    l0Result = makeResult({ manifest, layer: 'L0', command: l0, status, exec });
+  let l0Result = null;
+  let l1Result = null;
 
-    const key = buildS3Key({ prefix, tenantKey, repoSlug, buildId, path: 'L0/result.json' });
-    await putJson({ bucket, key, obj: l0Result });
-  } else {
-    l0Result = makeResult({ manifest, layer: 'L0', command: '', status: 'skipped', exec: null });
-    const key = buildS3Key({ prefix, tenantKey, repoSlug, buildId, path: 'L0/result.json' });
-    await putJson({ bucket, key, obj: l0Result });
+  try {
+    // 2) Executa L0
+    l0Result = await runLayer({ layer: 'L0', command: l0Cmd, cwd: workdir });
+    const l0Path = await writeResult({ manifest, layer: 'L0', result: l0Result });
+    await publishToS3({ manifest, layer: 'L0', bucket: s3Bucket, prefix: s3Prefix, resultPath: l0Path });
+
+    // 3) Executa L1 (opcional)
+    if (l1Cmd && String(l1Cmd).trim()) {
+      l1Result = await runLayer({ layer: 'L1', command: l1Cmd, cwd: workdir });
+      const l1Path = await writeResult({ manifest, layer: 'L1', result: l1Result });
+      await publishToS3({ manifest, layer: 'L1', bucket: s3Bucket, prefix: s3Prefix, resultPath: l1Path });
+    }
+
+    // 4) Final status
+    const finalStatus = deriveStatus(l0Result, l1Result);
+
+    await upsertBuild({
+      buildId: manifest.build_id,
+      repo: manifest.repo,
+      branch: manifest.branch,
+      headSha: manifest.sha,
+      shas: manifest.commit_shas,
+      authors: manifest.authors,
+      status: finalStatus,
+    });
+
+    if (finalStatus === 'failed') process.exitCode = 1;
+  } catch (err) {
+    // Se deu ruim no meio, marca failed no build e propaga exit code
+    await upsertBuild({
+      buildId: manifest.build_id,
+      repo: manifest.repo,
+      branch: manifest.branch,
+      headSha: manifest.sha,
+      shas: manifest.commit_shas,
+      authors: manifest.authors,
+      status: 'failed',
+    });
+    process.exitCode = 1;
+    throw err;
+  } finally {
+    await closeDb();
   }
-
-  // 3) L1 (opcional)
-  if (l1) {
-    const exec = await execCommand(l1, { cwd: workdir });
-    const status = exec.exitCode === 0 ? 'passed' : 'failed';
-    const l1Result = makeResult({ manifest, layer: 'L1', command: l1, status, exec });
-
-    const key = buildS3Key({ prefix, tenantKey, repoSlug, buildId, path: 'L1/result.json' });
-    await putJson({ bucket, key, obj: l1Result });
-
-    // falhar o job se L0 ou L1 falhar
-    if (l0Result.status !== 'passed' || l1Result.status !== 'passed') process.exit(1);
-    return;
-  }
-
-  // falhar o job se L0 falhar
-  if (l0Result.status !== 'passed') process.exit(1);
 }
 
-run().catch((err) => {
-  console.error('[qa-lab-runner] fatal:', err);
-  process.exit(1);
+main().catch((e) => {
+  console.error(e);
+  process.exitCode = 1;
 });

@@ -36,6 +36,8 @@ on:
     secrets:
       AWS_ROLE_ARN:
         required: true
+      QA_DB_URL:
+        required: true
 
 permissions:
   id-token: write
@@ -81,6 +83,7 @@ jobs:
       - name: Run QA Lab (L0/L1)
         working-directory: .qa-lab
         env:
+          QA_DB_URL: ${{ secrets.QA_DB_URL }}
           AWS_REGION: us-east-2
         run: |
           node runner/index.js \
