@@ -33,9 +33,9 @@ on:
         required: false
         type: string
         default: 'dev'
-      secrets:
+    secrets:
+      AWS_ROLE_ARN:
         required: true
-        type: string
 
 permissions:
   id-token: write
@@ -57,7 +57,7 @@ jobs:
       - name: Configure AWS credentials via OIDC
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          secret: ${{ inputs.AWS_ROLE_ARN }}
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: us-east-2
 
       - name: Install runner dependencies (qa-lab runner)
