@@ -2,10 +2,10 @@ name: QA Lab (Reusable)
 
 on:
   workflow_call:
-    secrets:
+    inputs:
       AWS_ROLE_ARN:
         required: true
-    inputs:
+        type: string
       tenant_key:
         required: true
         type: string
@@ -57,7 +57,7 @@ jobs:
       - name: Configure AWS credentials via OIDC
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          role-to-assume: ${{ inputs.AWS_ROLE_ARN }}
           aws-region: us-east-2
 
       - name: Install runner dependencies (qa-lab runner)
