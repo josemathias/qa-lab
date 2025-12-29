@@ -1,7 +1,9 @@
 name: Smoke QA Lab Runner
 
 on:
-  workflow_dispatch:
+  pull_request:
+  push:
+    branches: [ "main" ]
 
 permissions:
   id-token: write
