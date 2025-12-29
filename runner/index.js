@@ -38,6 +38,105 @@ async function main() {
 
   const manifest = buildManifest({ tenantKey, repo, repoSlug, buildId, workdir });
 
+  async function executeLayer({ layer, command }) {
+    let result = null;
+    let s3Info = null;
+    let recorded = false;
+    let publishError = null;
+
+    try {
+      result = await runLayer({ layer, command, cwd: workdir });
+      const resultPath = await writeResult({ manifest, layer, result });
+
+      try {
+        s3Info = await publishToS3({
+          manifest,
+          layer,
+          bucket: s3Bucket,
+          prefix: s3Prefix,
+          resultPath,
+        });
+      } catch (err) {
+        publishError = err;
+        console.error(`[qa-lab] publishToS3 failed for ${layer}:`, err?.message || err);
+      }
+
+      if (publishError && (!result.failures || !result.failures.length)) {
+        result.failures = [
+          {
+            test_name: null,
+            file_path: null,
+            message_snippet: publishError?.message || String(publishError),
+          },
+        ];
+        result.status = 'failed';
+      }
+
+      await recordRun({
+        buildId: manifest.build_id,
+        layer,
+        status: result.status,
+        durationMs: result.exec?.durationMs,
+        totals: result.totals,
+        s3ResultPath: s3Info ? `s3://${s3Info.bucket}/${s3Info.key}` : null,
+      });
+      recorded = true;
+
+      if (result.failures?.length) {
+        await recordFailures({ buildId: manifest.build_id, layer, failures: result.failures });
+      }
+
+      if (publishError) {
+        throw publishError;
+      }
+
+      return result;
+    } catch (err) {
+      if (result && !result.failures?.length) {
+        result.failures = [
+          {
+            test_name: null,
+            file_path: null,
+            message_snippet: err?.message || String(err),
+          },
+        ];
+      }
+
+      if (!recorded) {
+        try {
+          await recordRun({
+            buildId: manifest.build_id,
+            layer,
+            status: 'failed',
+            durationMs: result?.exec?.durationMs ?? null,
+            totals: result?.totals ?? null,
+            s3ResultPath: s3Info ? `s3://${s3Info.bucket}/${s3Info.key}` : null,
+          });
+          recorded = true;
+          if (result?.failures?.length) {
+            await recordFailures({ buildId: manifest.build_id, layer, failures: result.failures });
+          } else {
+            await recordFailures({
+              buildId: manifest.build_id,
+              layer,
+              failures: [
+                {
+                  test_name: null,
+                  file_path: null,
+                  message_snippet: err?.message || String(err),
+                },
+              ],
+            });
+          }
+        } catch (logErr) {
+          console.error(`[qa-lab] failed to record ${layer} failure:`, logErr?.message || logErr);
+        }
+      }
+
+      throw err;
+    }
+  }
+
   // 1) Marca build como running no DB (Neon)
   await upsertBuild({
     buildId: manifest.build_id,
@@ -54,37 +153,11 @@ async function main() {
 
   try {
     // 2) Executa L0
-    l0Result = await runLayer({ layer: 'L0', command: l0Cmd, cwd: workdir });
-    const l0Path = await writeResult({ manifest, layer: 'L0', result: l0Result });
-    const l0S3 = await publishToS3({ manifest, layer: 'L0', bucket: s3Bucket, prefix: s3Prefix, resultPath: l0Path });
-    await recordRun({
-      buildId: manifest.build_id,
-      layer: 'L0',
-      status: l0Result.status,
-      durationMs: l0Result.exec?.durationMs,
-      totals: l0Result.totals,
-      s3ResultPath: l0S3 ? `s3://${l0S3.bucket}/${l0S3.key}` : null,
-    });
-    if (l0Result.failures?.length) {
-      await recordFailures({ buildId: manifest.build_id, layer: 'L0', failures: l0Result.failures });
-    }
+    l0Result = await executeLayer({ layer: 'L0', command: l0Cmd });
 
     // 3) Executa L1 (opcional)
     if (l1Cmd && String(l1Cmd).trim()) {
-      l1Result = await runLayer({ layer: 'L1', command: l1Cmd, cwd: workdir });
-      const l1Path = await writeResult({ manifest, layer: 'L1', result: l1Result });
-      const l1S3 = await publishToS3({ manifest, layer: 'L1', bucket: s3Bucket, prefix: s3Prefix, resultPath: l1Path });
-      await recordRun({
-        buildId: manifest.build_id,
-        layer: 'L1',
-        status: l1Result.status,
-        durationMs: l1Result.exec?.durationMs,
-        totals: l1Result.totals,
-        s3ResultPath: l1S3 ? `s3://${l1S3.bucket}/${l1S3.key}` : null,
-      });
-      if (l1Result.failures?.length) {
-        await recordFailures({ buildId: manifest.build_id, layer: 'L1', failures: l1Result.failures });
-      }
+      l1Result = await executeLayer({ layer: 'L1', command: l1Cmd });
     }
 
     // 4) Final status
