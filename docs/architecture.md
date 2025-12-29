@@ -1,0 +1,53 @@
+# QA Lab – Arquitetura
+
+## Propósito
+Orquestrar suites de QA sem acoplar ferramenta: coletar contexto do build, executar camadas declaradas (hoje L0/L1), normalizar resultados, publicar artefatos no S3 e registrar índices no Neon/Postgres para histórico, flake e seleção por impacto.
+
+## Componentes
+- **Reusable Workflow** (`.github/workflows/qa-lab.yml`): expõe `workflow_call`, faz checkout do repo caller (`fetch-depth: 50`), configura Node, assume role AWS via OIDC e invoca o runner.
+- **Runner** (`runner/`):
+  - `manifest.js`: coleta SHA, commits, autores, branch, workflow/run IDs.
+  - `exec.js`: executa comandos; `runLayer` retorna status/exec metadata + esqueleto de stats/failures.
+  - `result.js`: monta payload padrão e grava em `.qa-lab-artifacts/<build>-<layer>.json`.
+  - `s3.js`: cria key e publica JSON em S3 (`prefix/tenant/repoSlug/buildId/results/<layer>.json`).
+  - `persist.js`/`db.js`: conexão Neon (via `QA_DB_URL`), grava `qa_build`, `qa_run`, `qa_failure`.
+- **Docs/contract** (`docs/contract.md`): contrato de camadas/config (em evolução).
+
+## Fluxo de execução
+1) Workflow caller passa inputs (tenant, repo_slug, build_id, comandos L0/L1, bucket/prefix etc.) e secrets (`AWS_ROLE_ARN`, `QA_DB_URL`).
+2) Checkout do repo caller com histórico (50 commits) para coletar SHAs/autores.
+3) Runner:
+   - Gera `manifest`.
+   - Marca `qa_build` como `running`.
+   - Roda L0 (sempre) e L1 (se fornecido) com `runLayer`.
+   - Grava resultado em disco (`writeResult`), publica no S3 (`publishToS3`), registra `qa_run` e falhas (`qa_failure`).
+   - Recalcula status final (failed se qualquer camada falhar), atualiza `qa_build` com `finished_at`.
+4) Artefatos ficam no workspace e no S3; índices ficam no Neon.
+
+## Persistência (DB Neon)
+Schema esperado (já provisionado):  
+- `qa_build`: build_id (PK), repo, branch, head_sha, commit_shas (text[]), authors (text[]), status, started_at, finished_at.  
+- `qa_run`: id, build_id (FK), layer, status, duration_ms, totals (jsonb), s3_result_path, created_at.  
+- `qa_failure`: id, build_id, layer, test_name, file_path, message_hash, message_snippet, created_at.
+`commit_shas`/`authors` são arrays de texto; `totals` é jsonb.
+
+## Armazenamento em S3
+- Bucket configurável (`s3_bucket`, default `qa-lab-results-dev`).
+- Prefix configurável (`s3_prefix`, default `dev`).
+- Chave: `<prefix>/<tenant>/<repoSlug>/<buildId>/results/<layer>.json`.
+- Upload via IAM Role assumida por OIDC (permissões Put/List/Get).
+
+## Inputs e secrets do workflow
+- Inputs obrigatórios: `tenant_key`, `repo_slug`, `build_id`, `workdir`, `l0_command`.  
+- Inputs opcionais: `l1_command`, `node_version` (default 20), `s3_bucket`, `s3_prefix`.  
+- Secrets: `AWS_ROLE_ARN`, `QA_DB_URL`.
+- Permissões do job: `id-token: write`, `contents: read`.
+
+## Limitações e próximos passos
+- `totals`/`failures` são placeholders; precisa de parsers por runner (JUnit/JSON) para preencher stats reais e falhas granulares.
+- Apenas L0/L1 estão ligados; L2/L3/L4 serão adicionadas via contrato de config.
+- O checkout usa `fetch-depth: 50`; ajustar se precisar de mais histórico.
+
+## Segurança e OIDC
+- O role AWS deve confiar nos repos callers (`token.actions.githubusercontent.com` + `sub` com `repo:<owner>/<repo>:*`).
+- Nunca comitar URLs/creds reais; usar `QA_DB_URL` como secret e `AWS_ROLE_ARN` com trust restrito.
