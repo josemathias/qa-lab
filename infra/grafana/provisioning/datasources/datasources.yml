@@ -1,0 +1,17 @@
+apiVersion: 1
+
+datasources:
+  - name: NeonPostgres
+    type: postgres
+    access: proxy
+    isDefault: true
+    editable: true
+    url: ${NEON_PG_HOST}:${NEON_PG_PORT}
+    user: ${NEON_PG_USER}
+    secureJsonData:
+      password: ${NEON_PG_PASSWORD}
+    jsonData:
+      database: ${NEON_PG_DB}
+      sslmode: ${NEON_PG_SSLMODE}
+      postgresVersion: 1500
+      timescaledb: false
