@@ -11,6 +11,17 @@ Orquestrar suites de QA sem acoplar ferramenta: coletar contexto do build, execu
   - `result.js`: monta payload padrão e grava em `.qa-lab-artifacts/<build>-<layer>.json`.
   - `s3.js`: cria key e publica JSON em S3 (`prefix/tenant/repoSlug/buildId/results/<layer>.json`).
   - `persist.js`/`db.js`: conexão Neon (via `QA_DB_URL`), grava `qa_build`, `qa_run`, `qa_failure`.
+- **Portal Web (Next.js)** (`portal/`):
+  - Interface de exploração e decisão humana
+  - Consome dados do Neon exclusivamente via endpoints server-side (`/api/*`)
+  - Navegação por builds, runs e failures
+  - Base para futuras interações com IA (QA-Analyst)
+
+- **Grafana (Observability)**:
+  - Ferramenta de observability e métricas agregadas
+  - Conectado diretamente ao Neon/Postgres como datasource (read-only)
+  - Usado para visão macro, tendências e alertas
+
 - **Docs/contract** (`docs/contract.md`): contrato de camadas/config (em evolução).
 
 ## Fluxo de execução
@@ -23,6 +34,9 @@ Orquestrar suites de QA sem acoplar ferramenta: coletar contexto do build, execu
    - Grava resultado em disco (`writeResult`), publica no S3 (`publishToS3`), registra `qa_run` e falhas (`qa_failure`).
    - Recalcula status final (failed se qualquer camada falhar), atualiza `qa_build` com `finished_at`.
 4) Artefatos ficam no workspace e no S3; índices ficam no Neon.
+5) Dados persistidos passam a ser consumidos por:
+   - Grafana, para visão agregada e observability
+   - Portal Web, para exploração detalhada, navegação e tomada de decisão
 
 ## Persistência (DB Neon)
 Schema esperado (já provisionado):  
@@ -30,6 +44,9 @@ Schema esperado (já provisionado):
 - `qa_run`: id, build_id (FK), layer, status, duration_ms, totals (jsonb), s3_result_path, created_at.  
 - `qa_failure`: id, build_id, layer, test_name, file_path, message_hash, message_snippet, created_at.
 `commit_shas`/`authors` são arrays de texto; `totals` é jsonb.
+
+O acesso de leitura aos dados segue o contrato definido em `docs/contract.md`.
+O Runner é o único componente autorizado a escrever no banco.
 
 ## Armazenamento em S3
 - Bucket configurável (`s3_bucket`, default `qa-lab-results-dev`).
@@ -47,6 +64,7 @@ Schema esperado (já provisionado):
 - `totals`/`failures` são placeholders; precisa de parsers por runner (JUnit/JSON) para preencher stats reais e falhas granulares.
 - Apenas L0/L1 estão ligados; L2/L3/L4 serão adicionadas via contrato de config.
 - O checkout usa `fetch-depth: 50`; ajustar se precisar de mais histórico.
+- Portal Web e Grafana já estão operacionais como consumidores de leitura; próximos passos incluem URLs assinadas de S3 e IA analítica (QA-Analyst).
 
 ## Segurança e OIDC
 - O role AWS deve confiar nos repos callers (`token.actions.githubusercontent.com` + `sub` com `repo:<owner>/<repo>:*`).

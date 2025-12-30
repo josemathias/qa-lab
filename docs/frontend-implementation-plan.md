@@ -54,10 +54,10 @@ infra/
 Criar `infra/grafana/docker-compose.yml` com:
 - serviço grafana
 - volume para persistência
-- porta 3000
+- porta 8080
 
 Conceito:
-- você acessa `http://localhost:3000`
+- você acessa `http://localhost:8080`
 - credenciais default (admin/admin) e troca na primeira entrada
 
 ## [x] 1.3 Configurar datasource Postgres (Neon)
@@ -74,7 +74,7 @@ IMPORTANTE:
 Aprendizado:
 - Grafana “provisioning” permite versionar a configuração, evitando “clicar” manualmente.
 
-## [x] 1.4 Criar dashboards mínimos (MVP)
+## [ ] 1.4 Criar dashboards mínimos (MVP)
 Dashboards recomendados (primeira semana):
 1) **QA Overview**
    - builds por status (pass/fail)
