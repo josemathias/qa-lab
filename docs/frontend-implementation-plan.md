@@ -1,12 +1,14 @@
 # Plano de Implementação (Learn-by-Doing)
 Grafana + Portal Next.js + QA-Analyst (IA) no qa-lab
 
-## Resultado final esperado
-1) Um ambiente local (Docker) com Grafana conectado ao Neon (Postgres datasource)
-2) Dashboards mínimos para L0/L1 (status, falhas, duração, flakiness básico)
-3) Um Portal Next.js no próprio repo (ou monorepo) que lista builds/runs, faz drill-down, e abre evidências do S3 via links assinados
-4) Um serviço QA-Analyst com endpoint HTTP que retorna análise (ainda que simples no início)
-5) Identidade visual do Portal compatível com o design system do nordflux-react
+## Status (até agora)
+- ✅ Grafana local via Docker + datasource Postgres (Neon) conectado
+- ✅ Dashboard MVP “QA Overview (MVP)” provisionado/visível
+- ✅ Portal Next.js dentro do repo (portal/) rodando em :3001
+- ✅ Endpoints funcionando: GET /api/builds, GET /api/builds/:buildId, GET /api/runs, GET /api/runs/:runId
+- ✅ Páginas: /builds, /builds/[buildId], /runs, /runs/[runId]
+- ✅ Aprendizado sobre schema: qa_run usa `id` (bigserial) e qa_failure liga por (build_id, layer), não run_id
+- ⏳ Próximos: endpoint S3 presign, stub do serviço QA-Analyst, tokens/componentes de identidade visual
 
 ---
 
@@ -32,7 +34,7 @@ Vamos padronizar em `.env` e secrets do CI:
 # Parte 1: Plugar Grafana no qa-lab (sem reinventar observability)
 Objetivo: subir Grafana localmente e conectar ao Neon via Postgres datasource.
 
-## 1.1 Criar um diretório de infraestrutura
+## [x] 1.1 Criar um diretório de infraestrutura
 No repo qa-lab, criar:
 - `infra/grafana/`
 
@@ -48,7 +50,7 @@ infra/
     dashboards/
       qa-overview.json
 
-## 1.2 Subir Grafana com Docker Compose
+## [x] 1.2 Subir Grafana com Docker Compose
 Criar `infra/grafana/docker-compose.yml` com:
 - serviço grafana
 - volume para persistência
@@ -58,7 +60,7 @@ Conceito:
 - você acessa `http://localhost:3000`
 - credenciais default (admin/admin) e troca na primeira entrada
 
-## 1.3 Configurar datasource Postgres (Neon)
+## [x] 1.3 Configurar datasource Postgres (Neon)
 Criar `infra/grafana/provisioning/datasources/datasources.yml`:
 - tipo: postgres
 - host: o host do Neon
@@ -72,7 +74,7 @@ IMPORTANTE:
 Aprendizado:
 - Grafana “provisioning” permite versionar a configuração, evitando “clicar” manualmente.
 
-## 1.4 Criar dashboards mínimos (MVP)
+## [x] 1.4 Criar dashboards mínimos (MVP)
 Dashboards recomendados (primeira semana):
 1) **QA Overview**
    - builds por status (pass/fail)
@@ -87,7 +89,7 @@ Implementação:
 - Primeiro, dashboards simples com queries SQL no datasource Postgres
 - Você pode exportar JSON do dashboard e salvar em `infra/grafana/dashboards/`
 
-## 1.5 Alertas (opcional no MVP, mas recomendado cedo)
+## [ ] 1.5 Alertas (opcional no MVP, mas recomendado cedo)
 - Alertar quando:
   - taxa de falha passa de X%
   - build crítico falha em main
@@ -101,7 +103,7 @@ Aprendizado:
 # Parte 2: Criar o Portal Next.js no repo qa-lab
 Objetivo: um portal leve para workflow humano e IA.
 
-## 2.1 Decidir onde o portal vive
+## [x] 2.1 Decidir onde o portal vive
 Opção A (recomendado):
 - Portal dentro do repo qa-lab:
   - `portal/` (Next.js)
@@ -110,15 +112,16 @@ Opção B:
 
 Vamos seguir com A para reduzir fricção.
 
-## 2.2 Inicializar Next.js
+## [x] 2.2 Inicializar Next.js
 Dentro do repo:
 - criar pasta `portal`
 - inicializar Next.js com TypeScript
+- Portal roda em http://localhost:3001
 
 Aprendizado:
 - Next traz SSR + rotas + server APIs no mesmo lugar.
 
-## 2.3 Instalar UI base e identidade visual (NordFlux)
+## [ ] 2.3 Instalar UI base e identidade visual (NordFlux)
 Objetivo: reaproveitar identidade do nordflux-react sem copiar o app inteiro.
 
 Estratégia:
@@ -137,7 +140,7 @@ Abordagem recomendada:
   - detalhe de run
   - chat IA
 
-## 2.4 Conexão segura com Neon e S3 (server-side)
+## [x] 2.4 Conexão segura com Neon e S3 (server-side)
 Regra de ouro:
 - Browser não fala direto com Neon e não carrega credenciais AWS.
 
@@ -147,26 +150,33 @@ No Next:
   2) Gerar URL assinada do S3 para baixar evidências
 
 Endpoints mínimos:
-- `GET /api/builds`
-- `GET /api/builds/:buildId`
-- `GET /api/runs/:runId`
-- `POST /api/s3/presign` (recebe key e retorna URL assinada)
-- `POST /api/analyst/analyze` (chama QA-Analyst e retorna resposta)
+- ✅ GET /api/builds
+- ✅ GET /api/builds/:buildId
+- ✅ GET /api/runs
+- ✅ GET /api/runs/:runId
+- ⏳ POST /api/s3/presign
+- ⏳ POST /api/analyst/analyze
+
+Aprendizado real:
+- Next.js 16 exige tratar `params` dinâmicos como Promise
+- URL base absoluta é construída a partir de `headers()` (host + x-forwarded-proto)
 
 Aprendizado:
 - separa dados sensíveis do client e permite RBAC depois.
 
-## 2.5 Páginas do Portal (MVP)
+## [x] 2.5 Páginas do Portal (MVP)
 1) `/builds`
    - tabela com builds (status, branch, sha, duração, created_at)
    - filtros
 2) `/builds/[buildId]`
    - lista runs (L0/L1)
    - status por camada
-3) `/runs/[runId]`
+3) `/runs`
+   - lista runs geral (adicionado para refletir endpoints)
+4) `/runs/[runId]`
    - falhas detalhadas (teste, mensagem, arquivo, links)
    - botões: “Analisar com IA”, “Rerun”, “Quarentenar”
-4) Componente “Evidence”
+5) Componente “Evidence”
    - quando clicar, portal pede URL assinada e abre o artefato no browser
 
 ---
@@ -190,6 +200,14 @@ Revisar se as tabelas guardam:
 - build_id, repo, branch, sha, actor, timestamps, status
 - run_id, build_id, layer, suite, status, duration
 - failure_id, run_id, test_id/name, file_path, message (resumo), s3_key(s)
+
+Estado atual:
+- qa_build: build_id (text), repo, branch, head_sha, commit_shas, authors, status, started_at, finished_at
+- qa_run: id (bigserial), build_id, layer, status, duration_ms, totals (jsonb), s3_result_path, created_at
+- qa_failure: id (bigserial), build_id, layer, test_name, file_path, message_hash, message_snippet, created_at
+
+Nota importante:
+- failures são ligados a runs por (build_id, layer) no MVP atual.
 
 Se algo estiver “apenas no JSON”, considerar replicar um resumo no Neon.
 
