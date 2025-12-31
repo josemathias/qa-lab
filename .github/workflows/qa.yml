@@ -17,7 +17,7 @@ jobs:
       repo_slug: "qa-lab"
       build_id: "${{ github.run_id }}"
       workdir: "."
-      l0_command: "npm test"
+      l0_command: "npm ci && npm test"
       l1_command: ""
       node_version: "20"
       s3_bucket: "qa-lab-results-dev"
