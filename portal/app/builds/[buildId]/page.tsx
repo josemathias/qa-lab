@@ -41,6 +41,11 @@ export default async function BuildDetailPage({
       <pre style={{ background: "#f6f6f6", padding: 12, overflowX: "auto" }}>
         {JSON.stringify(build, null, 2)}
       </pre>
+      {build?.actor ? (
+        <p style={{ marginTop: 8 }}>
+          <strong>actor:</strong> {build.actor}
+        </p>
+      ) : null}
 
       <h2 style={{ marginTop: 16 }}>Runs</h2>
       <ul>
@@ -48,7 +53,7 @@ export default async function BuildDetailPage({
           <li key={r.id}>
             <a href={`/runs/${r.id}`}>{r.id}</a>{" "}
             <span style={{ opacity: 0.7 }}>
-              (layer: {r.layer ?? "-"}, status: {r.status ?? "-"})
+              (layer: {r.layer ?? "-"}, suite: {r.suite ?? "-"}, status: {r.status ?? "-"})
             </span>
           </li>
         ))}

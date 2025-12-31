@@ -7,7 +7,7 @@ export const runtime = "nodejs";
  * GET /api/builds
  *
  * Schema facts (confirmed):
- * - qa_build columns: build_id, repo, branch, head_sha, commit_shas, authors, status, started_at, finished_at
+ * - qa_build columns: build_id, repo, branch, head_sha, commit_shas, authors, actor, status, started_at, finished_at
  *
  * Optional query params:
  * - limit (default 50, max 200)
@@ -27,6 +27,7 @@ export async function GET(req: Request) {
       head_sha,
       commit_shas,
       authors,
+      actor,
       status,
       started_at,
       finished_at

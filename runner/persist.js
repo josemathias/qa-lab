@@ -9,39 +9,52 @@ function normalizeAuthors(authors) {
   });
 }
 
-export async function upsertBuild({ buildId, repo, branch, headSha, shas, authors, status, finishedAt }) {
+export async function upsertBuild({ buildId, repo, branch, headSha, shas, authors, actor, status, finishedAt }) {
   await pool.query(
     `insert into qa_build
-      (build_id, repo, branch, head_sha, commit_shas, authors, status, finished_at)
-     values ($1,$2,$3,$4,$5,$6,$7,$8)
+      (build_id, repo, branch, head_sha, commit_shas, authors, actor, status, finished_at)
+     values ($1,$2,$3,$4,$5,$6,$7,$8,$9)
      on conflict (build_id) do update
      set status = excluded.status,
-         finished_at = excluded.finished_at`,
-    [buildId, repo, branch, headSha, shas || [], normalizeAuthors(authors), status, finishedAt || null]
+         finished_at = excluded.finished_at,
+         actor = excluded.actor`,
+    [buildId, repo, branch, headSha, shas || [], normalizeAuthors(authors), actor || null, status, finishedAt || null]
   );
 }
 
-export async function recordRun({ buildId, layer, status, durationMs, totals, s3ResultPath }) {
-  await pool.query(
+export async function recordRun({ buildId, layer, status, durationMs, totals, s3ResultPath, suite, metadata }) {
+  const res = await pool.query(
     `insert into qa_run
-      (build_id, layer, status, duration_ms, totals, s3_result_path)
-     values ($1,$2,$3,$4,$5,$6)`,
-    [buildId, layer, status, durationMs ?? null, totals || null, s3ResultPath || null]
+      (build_id, layer, status, duration_ms, totals, s3_result_path, suite, metadata)
+     values ($1,$2,$3,$4,$5,$6,$7,$8)
+     returning id`,
+    [
+      buildId,
+      layer,
+      status,
+      durationMs ?? null,
+      totals || null,
+      s3ResultPath || null,
+      suite || null,
+      metadata || null,
+    ]
   );
+  return res.rows[0]?.id || null;
 }
 
-export async function recordFailures({ buildId, layer, failures }) {
+export async function recordFailures({ buildId, layer, runId = null, failures }) {
   const items = failures || [];
   if (!items.length) return;
 
   const text = `insert into qa_failure
-      (build_id, layer, test_name, file_path, message_hash, message_snippet)
-     values ($1,$2,$3,$4,$5,$6)`;
+      (build_id, layer, run_id, test_name, file_path, message_hash, message_snippet)
+     values ($1,$2,$3,$4,$5,$6,$7)`;
 
   for (const f of items) {
     await pool.query(text, [
       buildId,
       layer,
+      runId || null,
       f.test_name || null,
       f.file_path || null,
       f.message_hash || null,

@@ -39,6 +39,7 @@ export function buildManifest({ tenantKey, repo, repoSlug, buildId, workdir }) {
     tenant_key: tenantKey,
     repo,
     repo_slug: repoSlug,
+    actor: process.env.GITHUB_ACTOR || '',
     sha,
     commit_shas: commitShas,
     authors,

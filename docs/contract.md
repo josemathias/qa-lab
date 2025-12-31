@@ -39,6 +39,7 @@ Este é um **contrato vivo**, versionado conforme o sistema amadurece.
 | head_sha    | text        | SHA principal |
 | commit_shas | text[]      | SHAs envolvidos |
 | authors     | text[]      | Autores |
+| actor       | text        | Usuário que disparou o build |
 | status      | text        | pass \| fail \| error |
 | started_at | timestamptz | Início |
 | finished_at| timestamptz | Fim |
@@ -56,6 +57,8 @@ Este é um **contrato vivo**, versionado conforme o sistema amadurece.
 | duration_ms    | int         | Duração |
 | totals         | jsonb       | Totais agregados |
 | s3_result_path | text        | Prefixo no S3 |
+| suite          | text        | Nome da suite/camada (opcional) |
+| metadata       | jsonb       | Metadados adicionais da run (opcional) |
 | created_at     | timestamptz | Criação |
 
 ---
@@ -71,11 +74,11 @@ Este é um **contrato vivo**, versionado conforme o sistema amadurece.
 | file_path       | text        | Arquivo |
 | message_hash    | text        | Hash normalizado |
 | message_snippet | text        | Trecho da mensagem |
+| run_id          | bigint (FK opcional) | Referência direta à run |
 | created_at      | timestamptz | Criação |
 
 #### Nota importante
-Atualmente **não existe relação direta entre qa_failure e qa_run.id**.
-A associação é feita por `(build_id, layer)`.
+Atualmente existe **coluna opcional run_id** para associação direta; o vínculo legado continua por `(build_id, layer)` para compatibilidade.
 
 ---
 

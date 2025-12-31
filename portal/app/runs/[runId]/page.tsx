@@ -47,6 +47,16 @@ export default async function RunDetailPage({
       <pre style={{ background: "#f6f6f6", padding: 12, overflowX: "auto" }}>
         {JSON.stringify(run, null, 2)}
       </pre>
+      {run?.suite ? (
+        <p style={{ marginTop: 8 }}>
+          <strong>suite:</strong> {run.suite}
+        </p>
+      ) : null}
+      {run?.metadata ? (
+        <pre style={{ background: "#eef6ff", padding: 12, overflowX: "auto" }}>
+          {JSON.stringify(run.metadata, null, 2)}
+        </pre>
+      ) : null}
 
       <h2 style={{ marginTop: 16 }}>Failures</h2>
       {(failures ?? []).length === 0 ? (

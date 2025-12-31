@@ -198,8 +198,12 @@ Objetivo: padronizar outputs e garantir que Neon + S3 tenham o que o Grafana/Por
    - Por quê: sem mudança no produtor, o padrão não se mantém; fallback evita quebrar dados históricos.
 
 4) Reforçar o “índice navegável” no Neon  
-   - O que: validar campos obrigatórios por tabela, adicionar índices para campos usados em filtros/navegação (build_id, status, layer, created_at/started_at, branch, repo) e replicar resumos mínimos se só existirem no JSON.  
-   - Por quê: garante performance e autonomia do portal/Grafana sem depender de parse de artefatos.
+   - Plano de execução:
+     1) **Campos obrigatórios**: garantir que `qa_build` guarde repo, branch, head_sha, commit_shas[], authors[], status, started_at, finished_at; `qa_run` guarde build_id, layer, status, duration_ms, totals, s3_result_path, created_at; `qa_failure` guarde build_id, layer, test_name, file_path, message_hash, message_snippet, created_at. Ajustar contract se houver lacunas (ex.: suite/camadas futuras).
+     2) **Índices para navegação**: criar índices em `qa_build(build_id)`, `qa_build(branch)`, `qa_build(repo)`, `qa_build(started_at)`, `qa_run(build_id)`, `qa_run(layer)`, `qa_run(created_at)`, `qa_failure(build_id, layer)`, e índices parciais para status se necessário (pass/fail). Avaliar índices compostos para filtros mais usados (ex.: `qa_run(build_id, layer)`).
+     3) **Resumo mínimo no DB**: avaliação atual indica que os campos existentes cobrem o mínimo (repo/branch/sha/status/timestamps em `qa_build`; layer/status/duration/totals/s3_result_path em `qa_run`; falhas básicas em `qa_failure`). Associação de failures segue por (build_id, layer). Futuro: adicionar colunas `actor` (build), `suite`/`metadata` (run) se precisarmos granularidade maior ou relação direta run→failure.
+     4) **Migração/DDL**: preparar script SQL (e instruções) para criar índices e colunas faltantes sem quebrar dados existentes.
+     5) **Validação**: rodar consulta de tempo de resposta (EXPLAIN) para builds/runs/failures e checar se portal/Grafana conseguem paginar/filtrar sem regressão.
 
 5) Criar tabela de decisões (`qa_decision`)  
    - O que: definir esquema (decision_id, build_id/run_id, type, author, reason, created_at), criar migration/DDL e plugar ponto de escrita no portal (mesmo que stub).  

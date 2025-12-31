@@ -4,7 +4,9 @@ type RunRow = {
   id: number; // qa_run.id is bigserial (number)
   build_id?: string;
   layer?: string;
+  suite?: string;
   status?: string;
+  metadata?: Record<string, any>;
   duration_ms?: number;
   created_at?: string;
 };
@@ -38,7 +40,7 @@ export default async function RunsIndexPage() {
       <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 16 }}>
         <thead>
           <tr>
-            {["id", "build_id", "layer", "status", "duration_ms", "created_at"].map((h) => (
+            {["id", "build_id", "layer", "suite", "status", "duration_ms", "created_at"].map((h) => (
               <th
                 key={h}
                 style={{ textAlign: "left", borderBottom: "1px solid #ddd", padding: 8 }}
@@ -56,6 +58,7 @@ export default async function RunsIndexPage() {
               </td>
               <td style={{ padding: 8 }}>{r.build_id ?? "-"}</td>
               <td style={{ padding: 8 }}>{r.layer ?? "-"}</td>
+              <td style={{ padding: 8 }}>{r.suite ?? "-"}</td>
               <td style={{ padding: 8 }}>{r.status ?? "-"}</td>
               <td style={{ padding: 8 }}>{r.duration_ms ?? "-"}</td>
               <td style={{ padding: 8 }}>{r.created_at ?? "-"}</td>

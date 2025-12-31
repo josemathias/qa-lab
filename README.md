@@ -17,8 +17,7 @@ Um portal web server-side (Next.js App Router) para navegação e inspeção dos
 Funcionalidades atuais (MVP):
 - Lista de builds (`qa_build`)
 - Detalhe de build com suas runs (`qa_run`)
-- Lista global de runr compose down
-s
+- Lista global de runs
 - Detalhe de run com suas failures (`qa_failure`)
 - Navegação cruzada Builds → Runs → Failures
 
@@ -81,9 +80,9 @@ Essas duas camadas são complementares:
   - Espaço reservado para IA/análises: `analyst/...`
   - Artefatos adicionais: `runs/<layer>/attempt-<n>/raw|logs|artifacts/...` (quando existirem)
 - Linhas no Neon:  
-  - `qa_build` (status do build, SHAs, autores).  
-  - `qa_run` (por camada: status, duração, totals, link S3).  
-  - `qa_failure` (falhas individuais – esqueleto preenchido com snippet de stderr/stdout).
+  - `qa_build` (status do build, SHAs, autores, actor).  
+  - `qa_run` (por camada: status, duração, totals, suite/metadata, link S3).  
+  - `qa_failure` (falhas individuais – esqueleto preenchido com snippet de stderr/stdout e `run_id` opcional).
 
 ## Rodar local
 ```bash
@@ -153,9 +152,9 @@ Por padrão:
 - `GET /api/runs/:runId`
 
 Esses endpoints refletem diretamente o schema atual:
-- `qa_build`
-- `qa_run`
-- `qa_failure`
+- `qa_build` (com `actor`)
+- `qa_run` (com `suite`, `metadata`)
+- `qa_failure` (com `run_id` opcional)
 
 ## Mais detalhes
 - Arquitetura completa: `docs/architecture.md`

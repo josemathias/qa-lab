@@ -54,6 +54,8 @@ export async function GET(req: Request) {
       duration_ms,
       totals,
       s3_result_path,
+      suite,
+      metadata,
       created_at
     from qa_run
     ${where}

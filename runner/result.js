@@ -17,6 +17,7 @@ export function makeResult({ manifest, layer, attempt, command, status, exec, to
     tenant_key: manifest.tenant_key,
     repo: manifest.repo,
     repo_slug: manifest.repo_slug,
+    actor: manifest.actor || null,
     layer,
     attempt,
     status, // passed | failed | skipped

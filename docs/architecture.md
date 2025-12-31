@@ -46,9 +46,9 @@ Orquestrar suites de QA sem acoplar ferramenta: coletar contexto do build, execu
 
 ## Persistência (DB Neon)
 Schema esperado (já provisionado):  
-- `qa_build`: build_id (PK), repo, branch, head_sha, commit_shas (text[]), authors (text[]), status, started_at, finished_at.  
-- `qa_run`: id, build_id (FK), layer, status, duration_ms, totals (jsonb), s3_result_path, created_at.  
-- `qa_failure`: id, build_id, layer, test_name, file_path, message_hash, message_snippet, created_at.
+- `qa_build`: build_id (PK), repo, branch, head_sha, commit_shas (text[]), authors (text[]), actor, status, started_at, finished_at.  
+- `qa_run`: id, build_id (FK), layer, status, duration_ms, totals (jsonb), s3_result_path, suite, metadata (jsonb), created_at.  
+- `qa_failure`: id, build_id, layer, run_id (FK opcional), test_name, file_path, message_hash, message_snippet, created_at.
 `commit_shas`/`authors` são arrays de texto; `totals` é jsonb.
 
 O acesso de leitura aos dados segue o contrato definido em `docs/contract.md`.

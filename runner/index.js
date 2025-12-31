@@ -77,6 +77,7 @@ async function main() {
     let recorded = false;
     let publishError = null;
     const attempt = resolveAttempt(layer);
+    const suite = process.env[`QA_SUITE_${layer}`] || layer;
 
     try {
       result = await runLayer({ layer, command, cwd: workdir });
@@ -107,18 +108,26 @@ async function main() {
         result.status = 'failed';
       }
 
-        await recordRun({
+        const runId = await recordRun({
           buildId: manifest.build_id,
           layer,
           status: result.status,
           durationMs: result.exec?.durationMs,
           totals: result.totals,
           s3ResultPath: s3Info ? `s3://${s3Info.bucket}/${s3Info.key}` : null,
+          suite,
+          metadata: {
+            command,
+            attempt,
+            exit_code: result.exec?.exitCode ?? null,
+            started_at: result.exec?.startedAt ?? null,
+            finished_at: result.exec?.finishedAt ?? null,
+          },
         });
       recorded = true;
 
       if (result.failures?.length) {
-        await recordFailures({ buildId: manifest.build_id, layer, failures: result.failures });
+        await recordFailures({ buildId: manifest.build_id, layer, runId, failures: result.failures });
       }
 
       if (publishError) {
@@ -139,21 +148,30 @@ async function main() {
 
       if (!recorded) {
         try {
-          await recordRun({
+          const runId = await recordRun({
             buildId: manifest.build_id,
             layer,
             status: 'failed',
             durationMs: result?.exec?.durationMs ?? null,
             totals: result?.totals ?? null,
             s3ResultPath: s3Info ? `s3://${s3Info.bucket}/${s3Info.key}` : null,
+            suite,
+            metadata: {
+              command,
+              attempt,
+              exit_code: result?.exec?.exitCode ?? null,
+              started_at: result?.exec?.startedAt ?? null,
+              finished_at: result?.exec?.finishedAt ?? null,
+            },
           });
           recorded = true;
           if (result?.failures?.length) {
-            await recordFailures({ buildId: manifest.build_id, layer, failures: result.failures });
+            await recordFailures({ buildId: manifest.build_id, layer, runId, failures: result.failures });
           } else {
             await recordFailures({
               buildId: manifest.build_id,
               layer,
+              runId,
               failures: [
                 {
                   test_name: null,
@@ -180,6 +198,7 @@ async function main() {
     headSha: manifest.sha,
     shas: manifest.commit_shas,
     authors: manifest.authors,
+    actor: manifest.actor,
     status: 'running',
   });
 
@@ -205,6 +224,7 @@ async function main() {
       headSha: manifest.sha,
       shas: manifest.commit_shas,
       authors: manifest.authors,
+      actor: manifest.actor,
       status: finalStatus,
       finishedAt: new Date().toISOString(),
     });
@@ -219,6 +239,7 @@ async function main() {
       headSha: manifest.sha,
       shas: manifest.commit_shas,
       authors: manifest.authors,
+      actor: manifest.actor,
       status: 'failed',
       finishedAt: new Date().toISOString(),
     });

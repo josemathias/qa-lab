@@ -51,6 +51,8 @@ export async function GET(
       duration_ms,
       totals,
       s3_result_path,
+      suite,
+      metadata,
       created_at
     from qa_run
     where id = $1
@@ -64,24 +66,26 @@ export async function GET(
     return NextResponse.json({ run: null, failures: [] });
   }
 
-  // 2) Fetch failures using (build_id, layer)
+  // 2) Fetch failures using run_id when available, fallback to (build_id, layer) for legado
   const failuresSql = `
     select
       id,
       build_id,
       layer,
+      run_id,
       test_name,
       file_path,
       message_hash,
       message_snippet,
       created_at
     from qa_failure
-    where build_id = $1
-      and layer = $2
+    where (run_id = $1)
+       or (run_id is null and build_id = $2 and layer = $3)
     order by created_at asc;
   `;
 
   const failRes = await pool.query(failuresSql, [
+    run.id,
     run.build_id,
     run.layer,
   ]);

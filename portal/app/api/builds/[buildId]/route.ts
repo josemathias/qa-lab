@@ -41,6 +41,7 @@ export async function GET(
       head_sha,
       commit_shas,
       authors,
+      actor,
       status,
       started_at,
       finished_at
@@ -59,6 +60,8 @@ export async function GET(
       duration_ms,
       totals,
       s3_result_path,
+      suite,
+      metadata,
       created_at
     from qa_run
     where build_id = $1

@@ -5,6 +5,7 @@ type BuildRow = {
   repo?: string;
   branch?: string;
   head_sha?: string;
+  actor?: string;
   status?: string;
   started_at?: string;
   finished_at?: string;
@@ -52,6 +53,7 @@ export default async function BuildsPage() {
               "build_id",
               "repo",
               "branch",
+              "actor",
               "status",
               "started_at",
               "finished_at",
@@ -77,6 +79,7 @@ export default async function BuildsPage() {
               </td>
               <td style={{ padding: 8 }}>{b.repo ?? "-"}</td>
               <td style={{ padding: 8 }}>{b.branch ?? "-"}</td>
+              <td style={{ padding: 8 }}>{b.actor ?? "-"}</td>
               <td style={{ padding: 8 }}>{b.status ?? "-"}</td>
               <td style={{ padding: 8 }}>{b.started_at ?? "-"}</td>
               <td style={{ padding: 8 }}>{b.finished_at ?? "-"}</td>
