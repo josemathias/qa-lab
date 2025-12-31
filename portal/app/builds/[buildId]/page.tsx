@@ -30,19 +30,6 @@ async function fetchBuild(
   return { ...data, decisions: decData.decisions ?? [] };
 }
 
-async function postDecision(buildId: string, payload: any) {
-  const baseUrl = await getBaseUrl();
-  const res = await fetch(`${baseUrl}/api/decisions`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({
-      build_id: buildId,
-      ...payload,
-    }),
-  });
-  return res.json();
-}
-
 export default async function BuildDetailPage({
   params,
 }: {
@@ -92,20 +79,60 @@ export default async function BuildDetailPage({
                 run_id: {d.run_id ?? "-"} | layer: {d.layer ?? "-"} | created_at: {d.created_at ?? "-"}
               </span>
               {d.reason ? <div>Motivo: {d.reason}</div> : null}
-              <form
-                action="/api/decisions"
-                method="post"
-                style={{ marginTop: 8, display: "inline-block" }}
-              >
-                <input type="hidden" name="build_id" value={buildId} />
-                <input type="hidden" name="type" value="rerun_request" />
-                <input type="hidden" name="actor" value="portal-demo" />
-                <button type="submit">Marcar rerun</button>
-              </form>
             </li>
           ))}
         </ul>
       )}
+
+      <h3 style={{ marginTop: 16 }}>Registrar decisão (demo)</h3>
+      <form action="/api/decisions" method="post" style={{ marginTop: 8 }}>
+        <input type="hidden" name="build_id" value={buildId} />
+        <div style={{ marginBottom: 8 }}>
+          <label>
+            Tipo:
+            <select name="type" defaultValue="waiver" style={{ marginLeft: 8 }}>
+              <option value="waiver">waiver</option>
+              <option value="quarantine">quarantine</option>
+              <option value="rerun_request">rerun_request</option>
+              <option value="issue_opened">issue_opened</option>
+              <option value="patch_suggested">patch_suggested</option>
+            </select>
+          </label>
+        </div>
+        <div style={{ marginBottom: 8 }}>
+          <label>
+            Actor:
+            <input name="actor" defaultValue="portal-user" style={{ marginLeft: 8 }} />
+          </label>
+        </div>
+        <div style={{ marginBottom: 8 }}>
+          <label>
+            Run ID:
+            <input
+              name="run_id"
+              defaultValue={runs?.[0]?.id ?? ""}
+              style={{ marginLeft: 8 }}
+            />
+          </label>
+        </div>
+        <div style={{ marginBottom: 8 }}>
+          <label>
+            Layer:
+            <input
+              name="layer"
+              defaultValue={runs?.[0]?.layer ?? ""}
+              style={{ marginLeft: 8 }}
+            />
+          </label>
+        </div>
+        <div style={{ marginBottom: 8 }}>
+          <label>
+            Motivo:
+            <input name="reason" placeholder="motivo opcional" style={{ marginLeft: 8 }} />
+          </label>
+        </div>
+        <button type="submit">Registrar</button>
+      </form>
     </main>
   );
 }

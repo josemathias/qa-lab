@@ -23,7 +23,23 @@ type DecisionPayload = {
 
 export async function POST(req: Request) {
   const pool = getPool();
-  const body = (await req.json()) as DecisionPayload;
+  const contentType = req.headers.get("content-type") || "";
+  let body: DecisionPayload;
+
+  if (contentType.includes("application/json")) {
+    body = (await req.json()) as DecisionPayload;
+  } else {
+    const form = await req.formData();
+    body = {
+      build_id: String(form.get("build_id") || ""),
+      run_id: form.get("run_id") ? Number(form.get("run_id")) : null,
+      layer: form.get("layer") ? String(form.get("layer")) : null,
+      type: String(form.get("type") || ""),
+      actor: form.get("actor") ? String(form.get("actor")) : null,
+      reason: form.get("reason") ? String(form.get("reason")) : null,
+      metadata: null,
+    };
+  }
 
   if (!body?.build_id || !body?.type) {
     return NextResponse.json({ error: "build_id and type are required" }, { status: 400 });

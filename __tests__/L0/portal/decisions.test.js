@@ -65,4 +65,26 @@ describe('API /api/decisions', () => {
     expect(getJson.decisions.length).toBe(1);
     expect(getJson.decisions[0].actor).toBe('tester');
   });
+
+  it('accepts form submissions', async () => {
+    const body = new URLSearchParams({
+      build_id: 'b2',
+      run_id: '2',
+      layer: 'L1',
+      type: 'quarantine',
+      actor: 'form-user',
+      reason: 'demo',
+    });
+
+    const postRes = await POST(
+      new Request('http://localhost/api/decisions', {
+        method: 'POST',
+        body,
+        headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      })
+    );
+    const postJson = await postRes.json();
+    expect(postJson.decision.build_id).toBe('b2');
+    expect(postJson.decision.type).toBe('quarantine');
+  });
 });

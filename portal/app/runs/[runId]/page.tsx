@@ -104,6 +104,38 @@ export default async function RunDetailPage({
           ))}
         </ul>
       )}
+
+      <h3 style={{ marginTop: 16 }}>Registrar decisão (run)</h3>
+      <form action="/api/decisions" method="post" style={{ marginTop: 8 }}>
+        <input type="hidden" name="build_id" value={run?.build_id ?? ""} />
+        <input type="hidden" name="run_id" value={run?.id ?? ""} />
+        <input type="hidden" name="layer" value={run?.layer ?? ""} />
+        <div style={{ marginBottom: 8 }}>
+          <label>
+            Tipo:
+            <select name="type" defaultValue="waiver" style={{ marginLeft: 8 }}>
+              <option value="waiver">waiver</option>
+              <option value="quarantine">quarantine</option>
+              <option value="rerun_request">rerun_request</option>
+              <option value="issue_opened">issue_opened</option>
+              <option value="patch_suggested">patch_suggested</option>
+            </select>
+          </label>
+        </div>
+        <div style={{ marginBottom: 8 }}>
+          <label>
+            Actor:
+            <input name="actor" defaultValue="portal-user" style={{ marginLeft: 8 }} />
+          </label>
+        </div>
+        <div style={{ marginBottom: 8 }}>
+          <label>
+            Motivo:
+            <input name="reason" placeholder="motivo opcional" style={{ marginLeft: 8 }} />
+          </label>
+        </div>
+        <button type="submit">Registrar</button>
+      </form>
     </main>
   );
 }
