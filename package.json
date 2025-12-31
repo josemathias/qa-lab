@@ -12,6 +12,6 @@
   "devDependencies": {
     "@testing-library/react": "^16.0.1",
     "supertest": "^7.0.0",
-    "vitest": "^1.6.0"
+    "vitest": "^1.6.1"
   }
 }
