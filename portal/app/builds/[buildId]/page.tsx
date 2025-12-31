@@ -30,6 +30,19 @@ async function fetchBuild(
   return { ...data, decisions: decData.decisions ?? [] };
 }
 
+async function postDecision(buildId: string, payload: any) {
+  const baseUrl = await getBaseUrl();
+  const res = await fetch(`${baseUrl}/api/decisions`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      build_id: buildId,
+      ...payload,
+    }),
+  });
+  return res.json();
+}
+
 export default async function BuildDetailPage({
   params,
 }: {
@@ -79,6 +92,16 @@ export default async function BuildDetailPage({
                 run_id: {d.run_id ?? "-"} | layer: {d.layer ?? "-"} | created_at: {d.created_at ?? "-"}
               </span>
               {d.reason ? <div>Motivo: {d.reason}</div> : null}
+              <form
+                action="/api/decisions"
+                method="post"
+                style={{ marginTop: 8, display: "inline-block" }}
+              >
+                <input type="hidden" name="build_id" value={buildId} />
+                <input type="hidden" name="type" value="rerun_request" />
+                <input type="hidden" name="actor" value="portal-demo" />
+                <button type="submit">Marcar rerun</button>
+              </form>
             </li>
           ))}
         </ul>
