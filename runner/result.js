@@ -2,9 +2,12 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
-const ARTIFACT_DIR = '.qa-lab-artifacts';
 const CONTRACT_VERSION = 'v1';
 const RESULT_SCHEMA_VERSION = 'v1';
+
+function artifactDir() {
+  return process.env.QA_ARTIFACT_DIR || '.qa-lab-artifacts';
+}
 
 export function makeResult({ manifest, layer, attempt, command, status, exec, totals, failures }) {
   return {
@@ -55,13 +58,15 @@ export async function writeResult({ manifest, layer, attempt = 1, result }) {
     failures: result.failures,
   });
 
+  const root = artifactDir();
+
   const attemptDir = path.join(
-    ARTIFACT_DIR,
+    root,
     safeName(manifest.build_id),
     safeName(layer),
     `attempt-${attempt}`
   );
-  const latestDir = path.join(ARTIFACT_DIR, safeName(manifest.build_id), safeName(layer), 'latest');
+  const latestDir = path.join(root, safeName(manifest.build_id), safeName(layer), 'latest');
 
   await fs.mkdir(attemptDir, { recursive: true });
   await fs.mkdir(latestDir, { recursive: true });

@@ -134,6 +134,19 @@ Garantias:
 
 ## 5. Contrato de evidências (S3)
 
+- Esquema definitivo de chaves S3 (multi-tenant, multi-layer, com tentativas):
+  - Base: `s3://<bucket>/<prefix>/<tenant>/<repo_slug>/<build_id>/` (prefix reflete ambiente)
+  - Manifest: `manifest.json` (com `contract_version` e `schema_version`)
+  - Runs por camada (L0…L4):
+    - Resultado normalizado: `runs/<layer>/attempt-<n>/result.json` (único caminho em `qa_run.s3_result_path`)
+    - Alias conveniência: `runs/<layer>/latest/result.json` (cópia do último attempt; não é fonte de verdade)
+    - Logs/artefatos/raw: `runs/<layer>/attempt-<n>/logs|artifacts|raw/...`
+  - IA/Flakiness/Seleção de testes:
+    - `analyst/<layer>/attempt-<n>/analysis-<timestamp>.json`
+    - `analyst/<layer>/attempt-<n>/flaky-check-<timestamp>.json`
+    - `analyst/selection/<layer>/attempt-<n>/inputs|plan|applied-<timestamp>.json`
+    - Alias: `analyst/selection/<layer>/latest/plan.json`
+  - Decisões (opcional em S3): `decisions/<build_id>-<run_or_layer>-<timestamp>.json` (índice oficial fica no DB)
 - Evidências pesadas (logs, traces, artefatos) vivem no S3
 - Neon armazena apenas o **ponteiro** (`s3_result_path`)
 - URLs públicas não são expostas diretamente

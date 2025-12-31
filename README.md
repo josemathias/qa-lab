@@ -73,8 +73,13 @@ Essas duas camadas são complementares:
 3) O workflow faz checkout com `fetch-depth: 50` para coletar SHAs/autores, instala Node, configura AWS via OIDC e roda o runner.
 
 ## O que é gerado
-- Manifest do build (contexto: SHAs, autores, repo, branch, run info).
-- Resultados por camada em `.qa-lab-artifacts/<build>-<layer>.json` e enviados ao S3 em `prefix/tenant/repoSlug/buildId/results/<layer>.json`.
+- Manifest do build (contexto: SHAs, autores, repo, branch, run info) — agora com `contract_version`/`schema_version`.
+- Resultados por camada em `.qa-lab-artifacts/<build>/<layer>/attempt-<n>/result.json` (e cópia em `latest/result.json`) e enviados ao S3 no esquema definitivo:
+  - Base: `s3://<bucket>/<prefix>/<tenant>/<repo_slug>/<build_id>/`
+  - Manifest: `manifest.json`
+  - Runs: `runs/<layer>/attempt-<n>/result.json` (único caminho referenciado em `s3_result_path`); alias `runs/<layer>/latest/result.json` para conveniência
+  - Espaço reservado para IA/análises: `analyst/...`
+  - Artefatos adicionais: `runs/<layer>/attempt-<n>/raw|logs|artifacts/...` (quando existirem)
 - Linhas no Neon:  
   - `qa_build` (status do build, SHAs, autores).  
   - `qa_run` (por camada: status, duração, totals, link S3).  
@@ -125,6 +130,21 @@ Por padrão:
 - Portal: http://localhost:3001
 - Builds: http://localhost:3001/builds
 - Runs: http://localhost:3001/runs
+
+### Esquema S3 (definitivo)
+- Base: `s3://<bucket>/<prefix>/<tenant>/<repo_slug>/<build_id>/` (prefix carrega ambiente: dev/stg/prod)
+- Manifest: `manifest.json` (com `contract_version`/`schema_version`)
+- Runs por camada (L0…L4):
+  - `runs/<layer>/attempt-<n>/result.json` (referenciado em `qa_run.s3_result_path`)
+  - Alias conveniência: `runs/<layer>/latest/result.json` (cópia do último attempt; não use como fonte de verdade)
+  - Logs/artefatos/raw: `runs/<layer>/attempt-<n>/logs|artifacts|raw/...` (quando houver)
+- IA/Flakiness/Seleção de testes:
+  - `analyst/<layer>/attempt-<n>/analysis-<timestamp>.json`
+  - `analyst/<layer>/attempt-<n>/flaky-check-<timestamp>.json`
+  - `analyst/selection/<layer>/attempt-<n>/inputs-<timestamp>.json`
+  - `analyst/selection/<layer>/attempt-<n>/plan-<timestamp>.json`
+  - `analyst/selection/<layer>/attempt-<n>/applied-<timestamp>.json`
+  - Alias conveniência: `analyst/selection/<layer>/latest/plan.json`
 
 ### Endpoints internos expostos
 - `GET /api/builds`

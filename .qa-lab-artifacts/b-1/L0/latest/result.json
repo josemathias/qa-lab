@@ -1,0 +1,30 @@
+{
+  "contract_version": "v1",
+  "schema_version": "v1",
+  "build_id": "b-1",
+  "tenant_key": "tenant-x",
+  "repo": "owner/repo",
+  "repo_slug": "repo",
+  "layer": "L0",
+  "attempt": 2,
+  "status": "passed",
+  "exit_code": 0,
+  "started_at": "2025-12-31T19:34:28.840Z",
+  "finished_at": "2025-12-31T19:34:28.841Z",
+  "duration_ms": 10,
+  "command": "echo test",
+  "sha": "abc",
+  "commit_shas": [],
+  "authors": [],
+  "totals": {
+    "total": null,
+    "passed": null,
+    "failed": null,
+    "skipped": null
+  },
+  "failures": [],
+  "logs": {
+    "stdout_tail": "ok",
+    "stderr_tail": ""
+  }
+}

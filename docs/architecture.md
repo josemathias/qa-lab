@@ -16,6 +16,12 @@ Orquestrar suites de QA sem acoplar ferramenta: coletar contexto do build, execu
   - Consome dados do Neon exclusivamente via endpoints server-side (`/api/*`)
   - Navegação por builds, runs e failures
   - Base para futuras interações com IA (QA-Analyst)
+- **Esquema de S3** (definitivo):
+  - Base: `s3://<bucket>/<prefix>/<tenant>/<repo_slug>/<build_id>/`
+  - Manifest: `manifest.json` (com `contract_version`/`schema_version`)
+  - Runs: `runs/<layer>/attempt-<n>/result.json` (referência em `qa_run.s3_result_path`) + alias `runs/<layer>/latest/result.json`
+  - Artefatos/logs/raw por camada: `runs/<layer>/attempt-<n>/logs|artifacts|raw/...`
+  - IA/Flakiness/Seleção de testes: `analyst/<layer>/attempt-<n>/analysis-*.json`, `flaky-check-*.json`, `selection/...`
 
 - **Grafana (Observability)**:
   - Ferramenta de observability e métricas agregadas

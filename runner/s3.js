@@ -2,27 +2,27 @@
 import fs from 'node:fs/promises';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 
-function clean(segment) {
+export function clean(segment) {
   return String(segment || '').replace(/^\/+|\/+$/g, '');
 }
 
-function basePrefix({ prefix }) {
+export function basePrefix({ prefix }) {
   return clean(prefix || 'dev');
 }
 
-function baseKey({ prefix, tenantKey, repoSlug, buildId }) {
+export function baseKey({ prefix, tenantKey, repoSlug, buildId }) {
   return `${basePrefix({ prefix })}/${clean(tenantKey)}/${clean(repoSlug)}/${clean(buildId)}`;
 }
 
-function resultKey({ base, layer, attempt }) {
+export function resultKey({ base, layer, attempt }) {
   return `${base}/runs/${clean(layer)}/attempt-${attempt}/result.json`;
 }
 
-function resultAliasKey({ base, layer }) {
+export function resultAliasKey({ base, layer }) {
   return `${base}/runs/${clean(layer)}/latest/result.json`;
 }
 
-function manifestKey({ base }) {
+export function manifestKey({ base }) {
   return `${base}/manifest.json`;
 }
 
@@ -53,7 +53,7 @@ export function buildS3Key({ prefix, tenantKey, repoSlug, buildId, path }) {
   return `${base}/${clean(path)}`;
 }
 
-export async function publishManifestToS3({ manifest, bucket, prefix }) {
+export async function publishManifestToS3({ manifest, bucket, prefix, putJsonFn = putJson }) {
   const key = manifestKey({
     base: baseKey({
       prefix,
@@ -63,11 +63,19 @@ export async function publishManifestToS3({ manifest, bucket, prefix }) {
     }),
   });
 
-  await putJson({ bucket, key, obj: manifest });
+  await putJsonFn({ bucket, key, obj: manifest });
   return { bucket, key };
 }
 
-export async function publishToS3({ manifest, layer, bucket, prefix, resultPath, attempt = 1 }) {
+export async function publishToS3({
+  manifest,
+  layer,
+  bucket,
+  prefix,
+  resultPath,
+  attempt = 1,
+  putJsonFn = putJson,
+}) {
   const payload = JSON.parse(await fs.readFile(resultPath, 'utf8'));
 
   const base = baseKey({
@@ -80,8 +88,8 @@ export async function publishToS3({ manifest, layer, bucket, prefix, resultPath,
   const attemptKey = resultKey({ base, layer, attempt });
   const aliasKey = resultAliasKey({ base, layer });
 
-  await putJson({ bucket, key: attemptKey, obj: payload });
-  await putJson({ bucket, key: aliasKey, obj: payload });
+  await putJsonFn({ bucket, key: attemptKey, obj: payload });
+  await putJsonFn({ bucket, key: aliasKey, obj: payload });
 
   return { bucket, key: attemptKey, aliasKey };
 }
