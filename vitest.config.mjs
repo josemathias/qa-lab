@@ -5,4 +5,9 @@ export default defineConfig({
     include: ['__tests__/L1/**/*.{test,spec}.{js,ts,tsx}'],
     exclude: ['node_modules/**', 'dist/**', '_deprecated/**', '__tests__/L0/**'],
   },
+  resolve: {
+    alias: {
+      '@': new URL('./portal', import.meta.url).pathname,
+    },
+  },
 });
