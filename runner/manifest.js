@@ -1,6 +1,9 @@
 // runner/manifest.js
 import { execSync } from 'node:child_process';
 
+const CONTRACT_VERSION = 'v1';
+const MANIFEST_SCHEMA_VERSION = 'v1';
+
 function safeExec(cmd, cwd) {
   try {
     return execSync(cmd, { cwd, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
@@ -30,6 +33,8 @@ export function buildManifest({ tenantKey, repo, repoSlug, buildId, workdir }) {
     });
 
   return {
+    contract_version: CONTRACT_VERSION,
+    schema_version: MANIFEST_SCHEMA_VERSION,
     build_id: String(buildId),
     tenant_key: tenantKey,
     repo,

@@ -2,6 +2,30 @@
 import fs from 'node:fs/promises';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 
+function clean(segment) {
+  return String(segment || '').replace(/^\/+|\/+$/g, '');
+}
+
+function basePrefix({ prefix }) {
+  return clean(prefix || 'dev');
+}
+
+function baseKey({ prefix, tenantKey, repoSlug, buildId }) {
+  return `${basePrefix({ prefix })}/${clean(tenantKey)}/${clean(repoSlug)}/${clean(buildId)}`;
+}
+
+function resultKey({ base, layer, attempt }) {
+  return `${base}/runs/${clean(layer)}/attempt-${attempt}/result.json`;
+}
+
+function resultAliasKey({ base, layer }) {
+  return `${base}/runs/${clean(layer)}/latest/result.json`;
+}
+
+function manifestKey({ base }) {
+  return `${base}/manifest.json`;
+}
+
 export function getS3Client() {
   const region = process.env.AWS_REGION || process.env.AWS_DEFAULT_REGION || 'us-east-2';
   return new S3Client({ region });
@@ -23,24 +47,41 @@ export async function putJson({ bucket, key, obj }) {
   return { bucket, key };
 }
 
+// Deprecated helper kept for compatibility (returns base/key combined path)
 export function buildS3Key({ prefix, tenantKey, repoSlug, buildId, path }) {
-  const p = (prefix || 'dev').replace(/^\/+|\/+$/g, '');
-  const clean = (s) => String(s || '').replace(/^\/+|\/+$/g, '');
-  return `${clean(p)}/${clean(tenantKey)}/${clean(repoSlug)}/${clean(buildId)}/${clean(path)}`;
+  const base = baseKey({ prefix, tenantKey, repoSlug, buildId });
+  return `${base}/${clean(path)}`;
 }
 
-export async function publishToS3({ manifest, layer, bucket, prefix, resultPath }) {
+export async function publishManifestToS3({ manifest, bucket, prefix }) {
+  const key = manifestKey({
+    base: baseKey({
+      prefix,
+      tenantKey: manifest.tenant_key,
+      repoSlug: manifest.repo_slug,
+      buildId: manifest.build_id,
+    }),
+  });
+
+  await putJson({ bucket, key, obj: manifest });
+  return { bucket, key };
+}
+
+export async function publishToS3({ manifest, layer, bucket, prefix, resultPath, attempt = 1 }) {
   const payload = JSON.parse(await fs.readFile(resultPath, 'utf8'));
 
-  const key = buildS3Key({
+  const base = baseKey({
     prefix,
     tenantKey: manifest.tenant_key,
     repoSlug: manifest.repo_slug,
     buildId: manifest.build_id,
-    path: `results/${layer}.json`,
   });
 
-  await putJson({ bucket, key, obj: payload });
+  const attemptKey = resultKey({ base, layer, attempt });
+  const aliasKey = resultAliasKey({ base, layer });
 
-  return { bucket, key };
+  await putJson({ bucket, key: attemptKey, obj: payload });
+  await putJson({ bucket, key: aliasKey, obj: payload });
+
+  return { bucket, key: attemptKey, aliasKey };
 }

@@ -184,16 +184,57 @@ Aprendizado:
 # Parte 3: Ajustes na infraestrutura atual do qa-lab (para suportar os dois front-ends)
 Objetivo: padronizar outputs e garantir que Neon + S3 tenham o que o Grafana/Portal precisam.
 
-## 3.1 Padronizar S3 Keys
-Definir um padrão previsível:
-- `s3://<bucket>/<prefix>/<repo>/<branch>/<build_id>/manifest.json`
-- `.../results/L0.json`
-- `.../results/L1.json`
-- `.../logs/runner.log`
-- `.../artifacts/...`
+### Plano detalhado (Parte 3)
+1) Mapear estado atual (S3 + Neon)  
+   - O que: inspecionar chaves existentes no bucket e colunas/população real nas tabelas (`qa_build`, `qa_run`, `qa_failure`).  
+   - Por quê: evitar romper dados já coletados e entender lacunas antes de padronizar.
 
-Aprendizado:
-- Sem padrão, você vira arqueólogo digital.
+2) Definir esquema de chaves S3 definitivo  
+   - O que: formalizar padrão único para manifest, resultados por camada, logs e artefatos (`<prefix>/<repo>/<branch>/<build_id>/...`). Documentar no README/contract.  
+   - Por quê: garante previsibilidade para o portal (link de evidências) e para o Grafana (links profundos), reduzindo variação por repositório.
+
+3) Aplicar padronização das chaves no runner/workflow  
+   - O que: ajustar `runner/s3.js` (ou equivalente) para gerar keys no padrão, criar migração simples para builds futuros, e manter compatibilidade retroativa (ex.: fallback para keys antigas se existirem).  
+   - Por quê: sem mudança no produtor, o padrão não se mantém; fallback evita quebrar dados históricos.
+
+4) Reforçar o “índice navegável” no Neon  
+   - O que: validar campos obrigatórios por tabela, adicionar índices para campos usados em filtros/navegação (build_id, status, layer, created_at/started_at, branch, repo) e replicar resumos mínimos se só existirem no JSON.  
+   - Por quê: garante performance e autonomia do portal/Grafana sem depender de parse de artefatos.
+
+5) Criar tabela de decisões (`qa_decision`)  
+   - O que: definir esquema (decision_id, build_id/run_id, type, author, reason, created_at), criar migration/DDL e plugar ponto de escrita no portal (mesmo que stub).  
+   - Por quê: rastreia ações humanas (waiver, rerun, quarantine) para auditoria e automação futura.
+
+6) Validação end-to-end  
+   - O que: rodar um build de teste, conferir keys geradas no S3, checar inserções no Neon, medir tempos de consulta e verificar se portal/Grafana continuam operando com o novo padrão.  
+   - Por quê: fecha o ciclo garantindo que o plano não quebrou consumo existente e que os ganhos (padronização e índice) se materializaram.
+
+## 3.1 Padronizar S3 Keys
+Esquema definitivo (multi-tenant, multi-layer, com tentativas e IA):
+- Base: `s3://<bucket>/<prefix>/<tenant>/<repo_slug>/<build_id>/`
+  - `<prefix>` carrega ambiente (ex.: `dev`, `stg`, `prod`) e pode incluir célula/região se necessário.
+- Manifest do build: `manifest.json` (contrato versionado, contexto de git, pipeline e inputs).
+- Runs por camada (L0…L4):  
+  - Resultado normalizado: `runs/<layer>/attempt-<n>/result.json` (único caminho referenciado por `s3_result_path` no DB).  
+  - Raw/artefatos de runner: `runs/<layer>/attempt-<n>/raw/<vendor>/...` (ex.: junit, json do cypress/playwright).  
+  - Logs: `runs/<layer>/attempt-<n>/logs/runner.log` (stdout/stderr consolidado).  
+  - Evidências leves: `runs/<layer>/attempt-<n>/artifacts/<type>/...` (ex.: screenshots, videos, traces, coverage).  
+  - Alias para última tentativa: `runs/<layer>/latest/result.json` (cópia do último `attempt-n`) para consumo rápido; sempre manter tentativa numerada como fonte de verdade.
+- IA (QA-Analyst) e flakiness:  
+  - Saída de análise: `analyst/<layer>/attempt-<n>/analysis-<timestamp>.json` (resumo executivo, hipóteses, ações).  
+  - Insumos/derivados de flaky: `analyst/<layer>/attempt-<n>/flaky-check-<timestamp>.json` (evidências de rerun/quarantine).
+- IA de seleção/priorização de testes (impact-based test selection):  
+  - Entrada usada pelo agente (diff e metadados): `analyst/selection/<layer>/attempt-<n>/inputs-<timestamp>.json` (arquivos alterados, cobertura prévia, histórico de falhas).  
+  - Lista de testes priorizados/despriorizados: `analyst/selection/<layer>/attempt-<n>/plan-<timestamp>.json` (inclui skip/only, motivações, score de risco).  
+  - Decisão aplicada (log de execução com filtros): `analyst/selection/<layer>/attempt-<n>/applied-<timestamp>.json` (quais testes rodaram, quais foram pulados, razão e impacto esperado).  
+  - Alias de último plano aplicado: `analyst/selection/<layer>/latest/plan.json` (cópia do plano mais recente; fonte de verdade é a versão com timestamp).
+- Decisões humanas (se precisarmos guardar em S3): `decisions/<build_id>-<run_or_layer>-<timestamp>.json` (espelha tabela `qa_decision`, mas opcional porque o índice oficial fica no DB).
+- Downloads pesados opcionais: `logs/global/` (pipeline completo) e `artifacts/global/` (ex.: bundle de screenshots/traces) se excederem o escopo de uma camada.
+
+Regras:
+- Sempre usar tentativas numeradas para reruns (ex.: `attempt-1` default, `attempt-2` para rerun/flaky fix); o alias `latest` é apenas conveniência.
+- `s3_result_path` deve apontar para o resultado normalizado da tentativa efetiva (`runs/<layer>/attempt-<n>/result.json`), nunca para o alias `latest`.
+- Guardar `contract_version` e `schema_version` dentro de `manifest.json` e `result.json` para migrações futuras.
 
 ## 3.2 Garantir que Neon tenha “índice navegável”
 Revisar se as tabelas guardam:

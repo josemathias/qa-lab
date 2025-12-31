@@ -3,14 +3,19 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 
 const ARTIFACT_DIR = '.qa-lab-artifacts';
+const CONTRACT_VERSION = 'v1';
+const RESULT_SCHEMA_VERSION = 'v1';
 
-export function makeResult({ manifest, layer, command, status, exec, totals, failures }) {
+export function makeResult({ manifest, layer, attempt, command, status, exec, totals, failures }) {
   return {
+    contract_version: CONTRACT_VERSION,
+    schema_version: RESULT_SCHEMA_VERSION,
     build_id: manifest.build_id,
     tenant_key: manifest.tenant_key,
     repo: manifest.repo,
     repo_slug: manifest.repo_slug,
     layer,
+    attempt,
     status, // passed | failed | skipped
     exit_code: exec?.exitCode ?? null,
     started_at: exec?.startedAt ?? null,
@@ -38,10 +43,11 @@ function safeName(text) {
   return String(text || '').replace(/[^a-zA-Z0-9._-]/g, '_');
 }
 
-export async function writeResult({ manifest, layer, result }) {
+export async function writeResult({ manifest, layer, attempt = 1, result }) {
   const payload = makeResult({
     manifest,
     layer,
+    attempt,
     command: result.command,
     status: result.status,
     exec: result.exec,
@@ -49,12 +55,23 @@ export async function writeResult({ manifest, layer, result }) {
     failures: result.failures,
   });
 
-  await fs.mkdir(ARTIFACT_DIR, { recursive: true });
+  const attemptDir = path.join(
+    ARTIFACT_DIR,
+    safeName(manifest.build_id),
+    safeName(layer),
+    `attempt-${attempt}`
+  );
+  const latestDir = path.join(ARTIFACT_DIR, safeName(manifest.build_id), safeName(layer), 'latest');
 
-  const filename = `${safeName(manifest.build_id)}-${safeName(layer)}.json`;
-  const filePath = path.join(ARTIFACT_DIR, filename);
+  await fs.mkdir(attemptDir, { recursive: true });
+  await fs.mkdir(latestDir, { recursive: true });
 
-  await fs.writeFile(filePath, JSON.stringify(payload, null, 2), 'utf8');
+  const attemptPath = path.join(attemptDir, 'result.json');
+  const latestPath = path.join(latestDir, 'result.json');
 
-  return filePath;
+  const serialized = JSON.stringify(payload, null, 2);
+  await fs.writeFile(attemptPath, serialized, 'utf8');
+  await fs.writeFile(latestPath, serialized, 'utf8');
+
+  return { attemptPath, latestPath };
 }

@@ -17,7 +17,8 @@ Um portal web server-side (Next.js App Router) para navegação e inspeção dos
 Funcionalidades atuais (MVP):
 - Lista de builds (`qa_build`)
 - Detalhe de build com suas runs (`qa_run`)
-- Lista global de runs
+- Lista global de runr compose down
+s
 - Detalhe de run com suas failures (`qa_failure`)
 - Navegação cruzada Builds → Runs → Failures
 
