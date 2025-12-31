@@ -1,5 +1,15 @@
 import { describe, it, expect, vi } from "vitest";
 
+vi.mock("next/server", () => ({
+  NextResponse: {
+    json: (data: any, init?: any) => ({
+      json: async () => data,
+      status: init?.status ?? 200,
+      body: data,
+    }),
+  },
+}));
+
 vi.mock("../../../portal/lib/db", () => {
   const rows: any[] = [];
   return {
