@@ -1,9 +1,9 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from '@jest/globals';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
-import { writeResult } from '../runner/result.js';
+import { writeResult } from '../../../runner/result.js';
 
 const manifest = {
   build_id: 'b-1',

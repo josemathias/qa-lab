@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from '@jest/globals';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -12,7 +12,7 @@ import {
   publishToS3,
   resultAliasKey,
   resultKey,
-} from '../runner/s3.js';
+} from '../../../runner/s3.js';
 
 const manifest = {
   build_id: 'build-123',
