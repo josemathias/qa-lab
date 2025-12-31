@@ -66,3 +66,16 @@ export async function recordFailures({ buildId, layer, runId = null, failures })
 export async function closeDb() {
   await pool.end();
 }
+
+export async function recordDecision({ buildId, runId = null, layer = null, type, actor, reason, metadata }) {
+  if (!buildId || !type) {
+    throw new Error('missing_required_fields');
+  }
+
+  await pool.query(
+    `insert into qa_decision
+      (build_id, run_id, layer, type, actor, reason, metadata)
+     values ($1,$2,$3,$4,$5,$6,$7)`,
+    [buildId, runId || null, layer || null, type, actor || null, reason || null, metadata || null]
+  );
+}

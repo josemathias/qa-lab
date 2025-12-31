@@ -14,12 +14,20 @@ async function getBaseUrl() {
 
 async function fetchBuild(
   buildId: string
-): Promise<{ build: AnyRow; runs: AnyRow[] }> {
+): Promise<{ build: AnyRow; runs: AnyRow[]; decisions: AnyRow[] }> {
   const baseUrl = await getBaseUrl();
   const res = await fetch(`${baseUrl}/api/builds/${buildId}`, {
     cache: "no-store",
   });
-  return res.json();
+  const data = await res.json();
+
+  const decRes = await fetch(
+    `${baseUrl}/api/decisions?build_id=${encodeURIComponent(buildId)}`,
+    { cache: "no-store" }
+  );
+  const decData = await decRes.json();
+
+  return { ...data, decisions: decData.decisions ?? [] };
 }
 
 export default async function BuildDetailPage({
@@ -28,7 +36,7 @@ export default async function BuildDetailPage({
   params: Promise<{ buildId: string }>;
 }) {
   const { buildId } = await params;
-  const { build, runs } = await fetchBuild(buildId);
+  const { build, runs, decisions } = await fetchBuild(buildId);
 
   return (
     <main style={{ padding: 24, fontFamily: "system-ui" }}>
@@ -58,6 +66,23 @@ export default async function BuildDetailPage({
           </li>
         ))}
       </ul>
+
+      <h2 style={{ marginTop: 16 }}>Decisions (build)</h2>
+      {(decisions ?? []).length === 0 ? (
+        <p style={{ opacity: 0.7 }}>Nenhuma decisão registrada.</p>
+      ) : (
+        <ul>
+          {decisions.map((d: AnyRow) => (
+            <li key={d.id} style={{ marginBottom: 8 }}>
+              <strong>{d.type}</strong> — actor: {d.actor ?? "-"} —{" "}
+              <span style={{ opacity: 0.7 }}>
+                run_id: {d.run_id ?? "-"} | layer: {d.layer ?? "-"} | created_at: {d.created_at ?? "-"}
+              </span>
+              {d.reason ? <div>Motivo: {d.reason}</div> : null}
+            </li>
+          ))}
+        </ul>
+      )}
     </main>
   );
 }

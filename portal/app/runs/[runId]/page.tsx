@@ -18,12 +18,21 @@ async function getBaseUrl() {
  */
 async function fetchRun(
   runId: string
-): Promise<{ run: AnyRow | null; failures: AnyRow[] }> {
+): Promise<{ run: AnyRow | null; failures: AnyRow[]; decisions: AnyRow[] }> {
   const baseUrl = await getBaseUrl();
   const res = await fetch(`${baseUrl}/api/runs/${runId}`, {
     cache: "no-store",
   });
-  return res.json();
+  const data = await res.json();
+
+  // Fetch decisions for this run
+  const decRes = await fetch(
+    `${baseUrl}/api/decisions?run_id=${encodeURIComponent(runId)}`,
+    { cache: "no-store" }
+  );
+  const decData = await decRes.json();
+
+  return { ...data, decisions: decData.decisions ?? [] };
 }
 
 export default async function RunDetailPage({
@@ -33,7 +42,7 @@ export default async function RunDetailPage({
 }) {
   // Next.js 16: params is a Promise
   const { runId } = await params;
-  const { run, failures } = await fetchRun(runId);
+  const { run, failures, decisions } = await fetchRun(runId);
 
   return (
     <main style={{ padding: 24, fontFamily: "system-ui" }}>
@@ -77,6 +86,23 @@ export default async function RunDetailPage({
             </li>
           ))}
         </ol>
+      )}
+
+      <h2 style={{ marginTop: 16 }}>Decisions (run)</h2>
+      {(decisions ?? []).length === 0 ? (
+        <p style={{ opacity: 0.7 }}>Nenhuma decisão registrada para esta run.</p>
+      ) : (
+        <ul>
+          {decisions.map((d: AnyRow) => (
+            <li key={d.id} style={{ marginBottom: 8 }}>
+              <strong>{d.type}</strong> — actor: {d.actor ?? "-"} —{" "}
+              <span style={{ opacity: 0.7 }}>
+                build_id: {d.build_id ?? "-"} | layer: {d.layer ?? "-"} | created_at: {d.created_at ?? "-"}
+              </span>
+              {d.reason ? <div>Motivo: {d.reason}</div> : null}
+            </li>
+          ))}
+        </ul>
       )}
     </main>
   );

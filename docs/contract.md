@@ -77,6 +77,20 @@ Este é um **contrato vivo**, versionado conforme o sistema amadurece.
 | run_id          | bigint (FK opcional) | Referência direta à run |
 | created_at      | timestamptz | Criação |
 
+### 2.4 Tabela `qa_decision`
+
+| Campo     | Tipo        | Descrição |
+|-----------|-------------|-----------|
+| id        | bigserial (PK) | Identificador técnico |
+| build_id  | text        | Build associado |
+| run_id    | bigint (FK opcional) | Referência a qa_run.id |
+| layer     | text        | Camada (opcional) |
+| type      | text        | waiver \| quarantine \| rerun_request \| issue_opened \| patch_suggested |
+| actor     | text        | Usuário que tomou a decisão |
+| reason    | text        | Motivo |
+| metadata  | jsonb       | Dados adicionais |
+| created_at| timestamptz | Criação |
+
 #### Nota importante
 Atualmente existe **coluna opcional run_id** para associação direta; o vínculo legado continua por `(build_id, layer)` para compatibilidade.
 

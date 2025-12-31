@@ -198,16 +198,23 @@ Objetivo: padronizar outputs e garantir que Neon + S3 tenham o que o Grafana/Por
    - Por quê: sem mudança no produtor, o padrão não se mantém; fallback evita quebrar dados históricos.
 
 4) Reforçar o “índice navegável” no Neon  
-   - Plano de execução:
-     1) **Campos obrigatórios**: garantir que `qa_build` guarde repo, branch, head_sha, commit_shas[], authors[], status, started_at, finished_at; `qa_run` guarde build_id, layer, status, duration_ms, totals, s3_result_path, created_at; `qa_failure` guarde build_id, layer, test_name, file_path, message_hash, message_snippet, created_at. Ajustar contract se houver lacunas (ex.: suite/camadas futuras).
-     2) **Índices para navegação**: criar índices em `qa_build(build_id)`, `qa_build(branch)`, `qa_build(repo)`, `qa_build(started_at)`, `qa_run(build_id)`, `qa_run(layer)`, `qa_run(created_at)`, `qa_failure(build_id, layer)`, e índices parciais para status se necessário (pass/fail). Avaliar índices compostos para filtros mais usados (ex.: `qa_run(build_id, layer)`).
-     3) **Resumo mínimo no DB**: avaliação atual indica que os campos existentes cobrem o mínimo (repo/branch/sha/status/timestamps em `qa_build`; layer/status/duration/totals/s3_result_path em `qa_run`; falhas básicas em `qa_failure`). Associação de failures segue por (build_id, layer). Futuro: adicionar colunas `actor` (build), `suite`/`metadata` (run) se precisarmos granularidade maior ou relação direta run→failure.
-     4) **Migração/DDL**: preparar script SQL (e instruções) para criar índices e colunas faltantes sem quebrar dados existentes.
-     5) **Validação**: rodar consulta de tempo de resposta (EXPLAIN) para builds/runs/failures e checar se portal/Grafana conseguem paginar/filtrar sem regressão.
+   - Status: concluído.
+   - O que foi feito:
+     1) Campos confirmados/expandidos: `qa_build` ganhou `actor`; `qa_run` ganhou `suite` e `metadata` (jsonb); `qa_failure` ganhou `run_id` (FK opcional, mantendo compatibilidade via build_id/layer).
+     2) Índices criados/aplicados: repo/branch/status/started_at em builds; build/layer/status/created_at em runs; build/layer/message_hash/created_at em failures.
+     3) Resumo/metadata: `qa_run.metadata` armazena comando, attempt, exit_code, started_at, finished_at; suite vem de `QA_SUITE_<LAYER>` ou nome da camada; actor vem do `GITHUB_ACTOR`.
+     4) DDL: `infra/db/ddl_columns.sql` e `infra/db/ddl_indexes.sql` aplicados no Neon.
+     5) Validação: EXPLAIN/ANALYZE em builds/runs/failures retornam em ms; portal atualizado para exibir actor/suite/metadata e usar `run_id` em falhas com fallback legacy.
 
 5) Criar tabela de decisões (`qa_decision`)  
-   - O que: definir esquema (decision_id, build_id/run_id, type, author, reason, created_at), criar migration/DDL e plugar ponto de escrita no portal (mesmo que stub).  
-   - Por quê: rastreia ações humanas (waiver, rerun, quarantine) para auditoria e automação futura.
+   - Plano de execução:
+     1) **Schema**: criar `qa_decision` com colunas: `id bigserial PK`, `build_id text`, `run_id bigint`, `layer text`, `type text` (waiver | quarantine | rerun_request | issue_opened | patch_suggested), `reason text`, `actor text` (usuário), `metadata jsonb` (opcional), `created_at timestamptz default now()`. FK opcional para `qa_run(id)`; manter `build_id` para consultas por build. Índices: `build_id`, `run_id`, `created_at`, `type`.
+     2) **DDL**: adicionar `infra/db/ddl_decision.sql` com CREATE TABLE/INDEX/constraints; aplicar no Neon (staging/prod).
+     3) **Persistência**: expor função `recordDecision` no runner/persist (ou camada server do portal) com assinatura `{buildId, runId?, layer?, type, actor, reason, metadata}`. Runner não deve escrever decisões; portal/API sim.
+     4) **API Portal**: criar endpoint server-side `/api/decisions` (POST) para registrar decisão, validando tipos e requerendo `QA_DB_URL`; adicionar GET para listar decisões de um build/run.
+     5) **UI Portal**: no detalhe de run/build, exibir decisões associadas (últimas N) e oferecer um stub de ação (ex.: botão “Registrar decisão” que faz POST com payload fixo para teste).
+     6) **Docs**: atualizar `README.md`, `docs/contract.md`, `docs/architecture.md` com o novo schema e papel de decisão (leitura pelo portal/Grafana, escrita pelo portal; runner não escreve).
+     7) **Testes**: L0 (Jest) para `recordDecision` com stubs; L1 (Vitest) para endpoint `/api/decisions` (mock de DB). Smoke manual: inserir decisão via API e verificar leitura no portal e no DB.
 
 6) Validação end-to-end  
    - O que: rodar um build de teste, conferir keys geradas no S3, checar inserções no Neon, medir tempos de consulta e verificar se portal/Grafana continuam operando com o novo padrão.  

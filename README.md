@@ -80,9 +80,10 @@ Essas duas camadas são complementares:
   - Espaço reservado para IA/análises: `analyst/...`
   - Artefatos adicionais: `runs/<layer>/attempt-<n>/raw|logs|artifacts/...` (quando existirem)
 - Linhas no Neon:  
-  - `qa_build` (status do build, SHAs, autores, actor).  
-  - `qa_run` (por camada: status, duração, totals, suite/metadata, link S3).  
-  - `qa_failure` (falhas individuais – esqueleto preenchido com snippet de stderr/stdout e `run_id` opcional).
+- `qa_build` (status do build, SHAs, autores, actor).  
+- `qa_run` (por camada: status, duração, totals, suite/metadata, link S3).  
+- `qa_failure` (falhas individuais – snippet de stderr/stdout, `run_id` opcional).
+- `qa_decision` (decisões humanas/automatizadas: type, actor, reason, metadata, build/run/layer).
 
 ## Rodar local
 ```bash
