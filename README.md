@@ -19,6 +19,7 @@ Funcionalidades atuais (MVP):
 - Detalhe de build com suas runs (`qa_run`)
 - Lista global de runs
 - Detalhe de run com suas failures (`qa_failure`)
+- Registro e listagem de decisões (`qa_decision`) no portal (forms simples + API)
 - Navegação cruzada Builds → Runs → Failures
 
 Características técnicas:
@@ -151,11 +152,13 @@ Por padrão:
 - `GET /api/builds/:buildId`
 - `GET /api/runs`
 - `GET /api/runs/:runId`
+- `GET/POST /api/decisions`
 
 Esses endpoints refletem diretamente o schema atual:
 - `qa_build` (com `actor`)
 - `qa_run` (com `suite`, `metadata`)
 - `qa_failure` (com `run_id` opcional)
+- `qa_decision`
 
 ## Mais detalhes
 - Arquitetura completa: `docs/architecture.md`
