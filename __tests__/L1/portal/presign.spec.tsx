@@ -52,7 +52,10 @@ describe("API /api/s3/presign", () => {
     const json = await res.json();
     expect(json.url).toBe("http://signed-url");
     expect(presignSpy).toHaveBeenCalled();
-    const keyArg = presignSpy.mock.calls[0][0];
+    const calls = presignSpy.mock.calls;
+    expect(calls.length).toBeGreaterThan(0);
+    const [keyArg] = (calls[0] as any[]) || [];
+    expect(typeof keyArg).toBe("string");
     expect(keyArg).toContain("dev/tenant/repo/b1/runs/L0/attempt-1/logs/runner.log");
   });
 });
