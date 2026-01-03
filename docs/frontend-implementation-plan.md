@@ -277,6 +277,22 @@ Aprendizado:
 
 ---
 
+# Parte 4A: Presigned URLs (S3)
+Objetivo: fornecer URLs temporárias para evidências no S3 sem expor credenciais.
+
+Contrato do endpoint (server-side):
+- `POST /api/s3/presign`
+- Corpo (JSON ou form):
+  - `key`: caminho completo no bucket, ou
+  - `build_id`, `layer`, `artifact_path` (ex.: `runs/L0/attempt-1/result.json`), opcional `run_id`
+- Resposta: `{ url: string, expires_in: number }`
+- Validações:
+  - `key` deve estar dentro de `<prefix>/<tenant>/<repo>/<build_id>/...`
+  - `artifact_path` permitido apenas em prefixos conhecidos (`runs/<layer>/...`, `logs/...`, `artifacts/...`)
+  - TTL curto (10-30 min), método GET apenas.
+- Autorização mínima (fase 1): checar existência de build/run no DB e combinar `build_id` com `key` solicitado; futura: RBAC/actor.
+- Observabilidade: logar build_id/run_id/layer/key e erros.
+
 # Parte 4: QA-Analyst (IA) e melhor alternativa para plugar cedo
 Objetivo: IA útil cedo, sem casar com o front.
 

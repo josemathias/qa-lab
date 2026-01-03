@@ -16,6 +16,7 @@ Orquestrar suites de QA sem acoplar ferramenta: coletar contexto do build, execu
   - Consome dados do Neon exclusivamente via endpoints server-side (`/api/*`)
   - Navegação por builds, runs e failures
   - Registro e exibição de decisões (`/api/decisions`) associadas a build/run/layer
+  - Planejado: endpoint `/api/s3/presign` para gerar URLs assinadas de artefatos (GET-only, TTL curto, validadas por build/layer)
   - Base para futuras interações com IA (QA-Analyst)
 - **Esquema de S3** (definitivo):
   - Base: `s3://<bucket>/<prefix>/<tenant>/<repo_slug>/<build_id>/`

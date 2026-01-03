@@ -94,6 +94,13 @@ Este é um **contrato vivo**, versionado conforme o sistema amadurece.
 #### Nota importante
 Atualmente existe **coluna opcional run_id** para associação direta; o vínculo legado continua por `(build_id, layer)` para compatibilidade.
 
+### 2.5 Presigned URLs (S3) — em implementação
+- Endpoint previsto: `POST /api/s3/presign` (server-side)
+- Entrada: `key` completo ou `{ build_id, layer, artifact_path, run_id? }`
+- Resposta: `{ url, expires_in }`
+- Restrições: somente GET, TTL curto, validação de prefixo (`<prefix>/<tenant>/<repo>/<build_id>/...`), paths permitidos (`runs/<layer>/...`, `logs/...`, `artifacts/...`)
+- Autorização mínima: checar build/run correspondente; evolução para RBAC/actor.
+
 ---
 
 ## 3. Contrato de escrita (Runner)
